@@ -21,6 +21,16 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email'),
 });
 
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
+
 export const transactionSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
   type: z.enum(['income', 'expense']),
@@ -55,6 +65,7 @@ export const budgetSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type TransactionInput = z.infer<typeof transactionSchema>;
 export type QuickAddInput = z.infer<typeof quickAddSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;

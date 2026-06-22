@@ -85,7 +85,7 @@ export async function seedDefaultCategories(userId: string) {
     // Clean up any duplicates left behind by older versions of this code.
     await dedupeCategories(userId);
 
-    await db.transaction('rw', db.categories, async () => {
+    await db.transaction('rw', db.categories, db.syncQueue, async () => {
       const existing = await db.categories
         .where('user_id')
         .equals(userId)
@@ -142,6 +142,18 @@ export async function seedDefaultCategories(userId: string) {
       ];
 
       await db.categories.bulkAdd(categories);
+      await db.syncQueue.bulkAdd(
+        categories.map((category) => ({
+          id: crypto.randomUUID(),
+          user_id: userId,
+          action_type: 'create' as const,
+          table_name: 'categories',
+          payload: { ...category },
+          status: 'pending' as const,
+          retry_count: 0,
+          created_at: now,
+        }))
+      );
     });
   } finally {
     seedingInProgress.delete(userId);

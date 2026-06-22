@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { seedDefaultCategories } from '@/db';
+import { syncEngine } from '@/sync/engine';
 import type { User as AppUser } from '@/types';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -26,6 +27,13 @@ export function useAuth() {
   });
 
   useEffect(() => {
+    const initializeLocalData = async (userId: string) => {
+      await seedDefaultCategories(userId);
+      if (navigator.onLine) {
+        await syncEngine.resumeForUser(userId);
+      }
+    };
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -34,7 +42,7 @@ export function useAuth() {
           session,
           loading: false,
         });
-        seedDefaultCategories(session.user.id);
+        void initializeLocalData(session.user.id);
       } else {
         setState({ user: null, session: null, loading: false });
       }
@@ -50,7 +58,11 @@ export function useAuth() {
           session,
           loading: false,
         });
-        seedDefaultCategories(session.user.id);
+        // Run outside the auth callback so Supabase can finish persisting the
+        // new session before queued requests start using it.
+        window.setTimeout(() => {
+          void initializeLocalData(session.user.id);
+        }, 0);
       } else {
         setState({ user: null, session: null, loading: false });
       }
@@ -91,6 +103,11 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
+  const updatePassword = useCallback(async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -105,6 +122,7 @@ export function useAuth() {
     signUp,
     signOut,
     resetPassword,
+    updatePassword,
     signInWithGoogle,
   };
 }

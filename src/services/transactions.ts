@@ -1,23 +1,23 @@
-import { db } from '@/db';
-import { syncEngine } from '@/sync/engine';
-import { generateId } from '@/lib/utils';
-import type { Transaction, TransactionWithCategory } from '@/types';
-import type { TransactionInput } from '@/lib/validations';
+import { db } from "@/db";
+import { syncEngine } from "@/sync/engine";
+import { generateId } from "@/lib/utils";
+import type { Transaction, TransactionWithCategory } from "@/types";
+import type { TransactionInput } from "@/lib/validations";
 
 export async function getTransactions(
   userId: string,
   options?: {
-    type?: 'income' | 'expense';
+    type?: "income" | "expense";
     categoryId?: string;
     startDate?: string;
     endDate?: string;
     search?: string;
-    sortBy?: 'newest' | 'oldest' | 'highest' | 'lowest';
+    sortBy?: "newest" | "oldest" | "highest" | "lowest";
     limit?: number;
     offset?: number;
-  }
+  },
 ): Promise<TransactionWithCategory[]> {
-  let collection = db.transactions.where('user_id').equals(userId);
+  let collection = db.transactions.where("user_id").equals(userId);
 
   let transactions = await collection.toArray();
 
@@ -28,19 +28,19 @@ export async function getTransactions(
 
   if (options?.categoryId) {
     transactions = transactions.filter(
-      (t) => t.category_id === options.categoryId
+      (t) => t.category_id === options.categoryId,
     );
   }
 
   if (options?.startDate) {
     transactions = transactions.filter(
-      (t) => t.transaction_date >= options.startDate!
+      (t) => t.transaction_date >= options.startDate!,
     );
   }
 
   if (options?.endDate) {
     transactions = transactions.filter(
-      (t) => t.transaction_date <= options.endDate!
+      (t) => t.transaction_date <= options.endDate!,
     );
   }
 
@@ -49,30 +49,30 @@ export async function getTransactions(
     transactions = transactions.filter(
       (t) =>
         t.description?.toLowerCase().includes(searchLower) ||
-        t.notes?.toLowerCase().includes(searchLower)
+        t.notes?.toLowerCase().includes(searchLower),
     );
   }
 
   // Sort
   switch (options?.sortBy) {
-    case 'oldest':
+    case "oldest":
       transactions.sort(
         (a, b) =>
           new Date(a.transaction_date).getTime() -
-          new Date(b.transaction_date).getTime()
+          new Date(b.transaction_date).getTime(),
       );
       break;
-    case 'highest':
+    case "highest":
       transactions.sort((a, b) => b.amount - a.amount);
       break;
-    case 'lowest':
+    case "lowest":
       transactions.sort((a, b) => a.amount - b.amount);
       break;
     default: // newest
       transactions.sort(
         (a, b) =>
           new Date(b.transaction_date).getTime() -
-          new Date(a.transaction_date).getTime()
+          new Date(a.transaction_date).getTime(),
       );
   }
 
@@ -86,7 +86,10 @@ export async function getTransactions(
   }
 
   // Attach categories
-  const categories = await db.categories.where('user_id').equals(userId).toArray();
+  const categories = await db.categories
+    .where("user_id")
+    .equals(userId)
+    .toArray();
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
   return transactions.map((t) => ({
@@ -94,16 +97,16 @@ export async function getTransactions(
     category: categoryMap.get(t.category_id) || {
       id: t.category_id,
       user_id: userId,
-      name: 'Unknown',
+      name: "Unknown",
       type: t.type,
       created_at: t.created_at,
-      sync_status: 'synced' as const,
+      sync_status: "synced" as const,
     },
   }));
 }
 
 export async function getTransaction(
-  id: string
+  id: string,
 ): Promise<TransactionWithCategory | null> {
   const transaction = await db.transactions.get(id);
   if (!transaction) return null;
@@ -114,17 +117,17 @@ export async function getTransaction(
     category: category || {
       id: transaction.category_id,
       user_id: transaction.user_id,
-      name: 'Unknown',
+      name: "Unknown",
       type: transaction.type,
       created_at: transaction.created_at,
-      sync_status: 'synced' as const,
+      sync_status: "synced" as const,
     },
   };
 }
 
 export async function createTransaction(
   userId: string,
-  input: TransactionInput
+  input: TransactionInput,
 ): Promise<Transaction> {
   const now = new Date().toISOString();
   const transaction: Transaction = {
@@ -140,13 +143,13 @@ export async function createTransaction(
     transaction_date: input.transaction_date,
     created_at: now,
     updated_at: now,
-    sync_status: 'pending',
+    sync_status: "pending",
   };
 
   await db.transactions.add(transaction);
 
   // Queue for sync
-  await syncEngine.addToQueue(userId, 'create', 'transactions', {
+  await syncEngine.addToQueue(userId, "create", "transactions", {
     ...transaction,
   });
 
@@ -156,21 +159,21 @@ export async function createTransaction(
 export async function updateTransaction(
   userId: string,
   id: string,
-  input: Partial<TransactionInput>
+  input: Partial<TransactionInput>,
 ): Promise<Transaction> {
   const existing = await db.transactions.get(id);
-  if (!existing) throw new Error('Transaction not found');
+  if (!existing) throw new Error("Transaction not found");
 
   const updated: Transaction = {
     ...existing,
     ...input,
     updated_at: new Date().toISOString(),
-    sync_status: 'pending',
+    sync_status: "pending",
   };
 
   await db.transactions.put(updated);
 
-  await syncEngine.addToQueue(userId, 'update', 'transactions', {
+  await syncEngine.addToQueue(userId, "update", "transactions", {
     ...updated,
   });
 
@@ -179,31 +182,35 @@ export async function updateTransaction(
 
 export async function deleteTransaction(
   userId: string,
-  id: string
+  id: string,
 ): Promise<void> {
   await db.transactions.delete(id);
-  await syncEngine.addToQueue(userId, 'delete', 'transactions', { id });
+  await syncEngine.addToQueue(userId, "delete", "transactions", { id });
 }
 
-export async function getMonthlyStats(userId: string, month: number, year: number) {
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]!;
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0]!;
+export async function getMonthlyStats(
+  userId: string,
+  month: number,
+  year: number,
+) {
+  const startDate = new Date(year, month - 1, 1).toISOString().split("T")[0]!;
+  const endDate = new Date(year, month, 0).toISOString().split("T")[0]!;
 
   const transactions = await db.transactions
-    .where('user_id')
+    .where("user_id")
     .equals(userId)
     .toArray();
 
   const monthlyTransactions = transactions.filter(
-    (t) => t.transaction_date >= startDate && t.transaction_date <= endDate
+    (t) => t.transaction_date >= startDate && t.transaction_date <= endDate,
   );
 
   const income = monthlyTransactions
-    .filter((t) => t.type === 'income')
+    .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const expenses = monthlyTransactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
 
   return { income, expenses, savings: income - expenses };
@@ -215,16 +222,16 @@ export async function getDashboardStats(userId: string) {
   const year = now.getFullYear();
 
   const allTransactions = await db.transactions
-    .where('user_id')
+    .where("user_id")
     .equals(userId)
     .toArray();
 
   const totalIncome = allTransactions
-    .filter((t) => t.type === 'income')
+    .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpenses = allTransactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const monthly = await getMonthlyStats(userId, month, year);

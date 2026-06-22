@@ -10,6 +10,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 const LoginPage = lazy(() => import('@/features/auth/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import('@/features/auth/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const ForgotPasswordPage = lazy(() => import('@/features/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('@/features/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const TransactionsPage = lazy(() => import('@/features/transactions/TransactionsPage').then(m => ({ default: m.TransactionsPage })));
 const TransactionDetailPage = lazy(() => import('@/features/transactions/TransactionDetailPage').then(m => ({ default: m.TransactionDetailPage })));
@@ -107,6 +108,10 @@ export default function App() {
                     </PublicRoute>
                   }
                 />
+
+                {/* Password recovery: reachable while holding a recovery
+                    session, so it is intentionally not wrapped in PublicRoute. */}
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
                 {/* Protected Routes */}
                 <Route
