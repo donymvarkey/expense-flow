@@ -7,7 +7,7 @@ export function FAB() {
   return (
     <button
       onClick={() => navigate('/add')}
-      className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-white shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 md:hidden"
+      className="brand-mark fixed bottom-24 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-2xl text-slate-950 transition-all hover:-translate-y-1 active:scale-95 md:hidden"
       aria-label="Add transaction"
     >
       <Plus className="h-6 w-6" />

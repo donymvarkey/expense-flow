@@ -36,15 +36,15 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="auth-shell flex min-h-screen flex-col items-center justify-center px-5 py-10">
+      <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 md:p-8">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[hsl(var(--primary))]">
-            <Wallet className="h-7 w-7 text-white" />
+          <div className="brand-mark mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl">
+            <Wallet className="h-7 w-7 text-slate-950" />
           </div>
-          <h1 className="text-2xl font-bold">Welcome back</h1>
+          <h1 className="text-gradient text-3xl font-bold tracking-tight">Welcome back</h1>
           <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-            Sign in to ExpenseFlow
+            Your financial clarity is waiting.
           </p>
         </div>
 

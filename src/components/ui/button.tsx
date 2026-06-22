@@ -11,24 +11,24 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(
-          'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hsl(var(--ring)) disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
+          'inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--background))] disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
           {
-            'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90':
+            'bg-gradient-to-br from-emerald-400 to-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/20 hover:-translate-y-0.5 hover:shadow-emerald-500/30':
               variant === 'default',
             'bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))] hover:bg-[hsl(var(--destructive))]/90':
               variant === 'destructive',
-            'border border-[hsl(var(--border))] bg-transparent hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]':
+            'glass-control hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-[hsl(var(--foreground))]':
               variant === 'outline',
             'hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]':
               variant === 'ghost',
             'text-[hsl(var(--primary))] underline-offset-4 hover:underline':
               variant === 'link',
-            'bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--secondary))]/80':
+            'glass-control text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--accent))]':
               variant === 'secondary',
-            'h-10 px-4 py-2': size === 'default',
+            'h-11 px-5 py-2': size === 'default',
             'h-9 rounded-md px-3': size === 'sm',
-            'h-12 rounded-lg px-8': size === 'lg',
-            'h-10 w-10': size === 'icon',
+            'h-13 rounded-2xl px-8': size === 'lg',
+            'h-11 w-11': size === 'icon',
           },
           className
         )}

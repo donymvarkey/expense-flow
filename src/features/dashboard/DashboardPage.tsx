@@ -15,6 +15,8 @@ import {
   PiggyBank,
   ArrowUpRight,
   ArrowDownRight,
+  Sparkles,
+  ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -51,62 +53,71 @@ export function DashboardPage() {
   if (loading) return <DashboardSkeleton />;
 
   return (
-    <div className="transition-page px-4 pt-12 md:pt-6">
+    <div className="transition-page px-4 pt-12 md:px-8 md:pt-8">
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">Good {getGreeting()},</p>
-        <h1 className="text-xl font-bold">{user?.full_name || 'there'} 👋</h1>
+      <div className="mb-7 flex items-end justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-500">
+            <Sparkles className="h-3.5 w-3.5" />
+            Good {getGreeting()}
+          </div>
+          <h1 className="text-gradient text-3xl font-bold tracking-tight md:text-4xl">
+            {user?.full_name || 'Your money'}
+          </h1>
+          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Here&apos;s your financial pulse.</p>
+        </div>
       </div>
 
       {/* Balance Card */}
-      <Card className="mb-4 bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 border-emerald-500/20">
-        <CardContent>
-          <p className="text-sm text-emerald-400/80">Current Balance</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-50">
+      <Card className="balance-card relative mb-4 overflow-hidden p-6 text-white md:p-8">
+        <div className="pointer-events-none absolute -right-8 -top-12 h-40 w-40 rounded-full border border-white/10" />
+        <div className="pointer-events-none absolute -right-2 -top-2 h-24 w-24 rounded-full border border-white/10" />
+        <CardContent className="relative">
+          <div className="mb-8 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/70">Available balance</p>
+            <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-50 backdrop-blur-md">Live overview</div>
+          </div>
+          <p className="text-4xl font-bold tracking-[-0.04em] text-white md:text-5xl">
             {formatCurrency(stats?.currentBalance || 0)}
           </p>
-          <div className="mt-3 flex gap-4">
-            <div className="flex items-center gap-1.5">
-              <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="text-xs text-emerald-400">
-                {formatCurrency(stats?.monthlyIncome || 0)}
-              </span>
+          <div className="mt-7 grid grid-cols-2 gap-3 md:max-w-md">
+            <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2.5 backdrop-blur-md">
+              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-100/65"><ArrowUpRight className="h-3.5 w-3.5" /> Income</div>
+              <span className="text-sm font-semibold text-white">{formatCurrency(stats?.monthlyIncome || 0)}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <ArrowDownRight className="h-3.5 w-3.5 text-red-400" />
-              <span className="text-xs text-red-400">
-                {formatCurrency(stats?.monthlyExpenses || 0)}
-              </span>
+            <div className="rounded-2xl border border-white/10 bg-slate-950/10 px-3 py-2.5 backdrop-blur-md">
+              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-100/65"><ArrowDownRight className="h-3.5 w-3.5" /> Spent</div>
+              <span className="text-sm font-semibold text-white">{formatCurrency(stats?.monthlyExpenses || 0)}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Stats Grid */}
-      <div className="mb-6 grid grid-cols-2 gap-3">
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
           label="Income"
           value={formatCurrency(stats?.totalIncome || 0)}
-          color="emerald"
+          accent="bg-emerald-500/12"
         />
         <StatCard
           icon={<TrendingDown className="h-4 w-4 text-red-500" />}
           label="Expenses"
           value={formatCurrency(stats?.totalExpenses || 0)}
-          color="red"
+          accent="bg-rose-500/12"
         />
         <StatCard
           icon={<Wallet className="h-4 w-4 text-blue-500" />}
           label="Monthly Spend"
           value={formatCurrency(stats?.monthlyExpenses || 0)}
-          color="blue"
+          accent="bg-blue-500/12"
         />
         <StatCard
           icon={<PiggyBank className="h-4 w-4 text-purple-500" />}
           label="Savings"
           value={formatCurrency(stats?.savings || 0)}
-          color="purple"
+          accent="bg-violet-500/12"
         />
       </div>
 
@@ -114,12 +125,12 @@ export function DashboardPage() {
       {budgets.length > 0 && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Budgets</h2>
+            <h2 className="text-base font-semibold tracking-tight">Budgets</h2>
             <button
               onClick={() => navigate('/budgets')}
-              className="text-xs text-[hsl(var(--primary))]"
+              className="flex items-center gap-1 text-xs font-semibold text-emerald-500"
             >
-              View all
+              View all <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
           <div className="space-y-3">
@@ -133,12 +144,12 @@ export function DashboardPage() {
       {/* Recent Transactions */}
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Recent Transactions</h2>
+          <h2 className="text-base font-semibold tracking-tight">Recent transactions</h2>
           <button
             onClick={() => navigate('/transactions')}
-            className="text-xs text-[hsl(var(--primary))]"
+            className="flex items-center gap-1 text-xs font-semibold text-emerald-500"
           >
-            View all
+            View all <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
         {recentTransactions.length === 0 ? (
@@ -167,20 +178,20 @@ function StatCard({
   icon,
   label,
   value,
-  color: _color,
+  accent,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  color: string;
+  accent: string;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-start gap-3">
-        <div className="rounded-lg bg-[hsl(var(--muted))] p-2">{icon}</div>
-        <div>
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">{label}</p>
-          <p className="text-sm font-semibold">{value}</p>
+    <Card className="p-4">
+      <CardContent className="flex items-center gap-3">
+        <div className={cn('rounded-2xl p-2.5', accent)}>{icon}</div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{label}</p>
+          <p className="truncate text-sm font-bold tracking-tight md:text-base">{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -230,7 +241,7 @@ function TransactionCard({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-left transition-colors active:bg-[hsl(var(--accent))]"
+      className="glass-panel flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-500/20 active:scale-[0.99]"
     >
       <div
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -263,7 +274,7 @@ function TransactionCard({
 
 function DashboardSkeleton() {
   return (
-    <div className="px-4 pt-12 md:pt-6">
+    <div className="page-shell px-4 pt-12 md:px-8 md:pt-8">
       <Skeleton className="mb-2 h-4 w-24" />
       <Skeleton className="mb-6 h-6 w-36" />
       <Skeleton className="mb-4 h-32 w-full rounded-xl" />

@@ -27,12 +27,12 @@ export function Dialog({ open, onClose, children, title, className }: DialogProp
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center">
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-md"
         onClick={onClose}
       />
       <div
         className={cn(
-          'relative z-50 w-full max-w-lg rounded-t-2xl md:rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-xl animate-in slide-in-from-bottom-4 md:slide-in-from-bottom-0',
+          'glass-panel relative z-50 w-full max-w-lg rounded-t-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-4 md:rounded-[2rem] md:slide-in-from-bottom-0',
           className
         )}
       >
