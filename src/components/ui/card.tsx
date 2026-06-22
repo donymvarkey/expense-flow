@@ -8,7 +8,7 @@ export function Card({
   return (
     <div
       className={cn(
-        'glass-panel rounded-3xl p-5 text-[hsl(var(--card-foreground))]',
+        'glass-panel rounded-3xl p-4 text-[hsl(var(--card-foreground))] sm:p-5',
         className
       )}
       {...props}

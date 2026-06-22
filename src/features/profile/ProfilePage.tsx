@@ -48,8 +48,9 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="transition-page px-4 pt-12 pb-24 md:pt-6">
-      <h1 className="mb-6 text-xl font-bold">Profile</h1>
+    <div className="transition-page px-4 pt-12 pb-24 md:px-8 md:pt-8">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-500">Personal space</p>
+      <h1 className="mb-6 text-2xl font-bold tracking-tight">Profile</h1>
 
       {/* User Info */}
       <Card className="mb-6">
@@ -158,7 +159,7 @@ export function ProfilePage() {
       </Card>
 
       {/* Menu */}
-      <div className="space-y-1">
+      <div className="glass-panel space-y-1 rounded-3xl p-2">
         <MenuItem
           icon={<Tag className="h-5 w-5" />}
           label="Categories"
@@ -233,7 +234,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-colors active:bg-[hsl(var(--accent))]"
+      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-colors hover:bg-white/5 active:bg-[hsl(var(--accent))]"
     >
       <span className="text-[hsl(var(--muted-foreground))]">{icon}</span>
       <span className="flex-1 text-sm font-medium">{label}</span>

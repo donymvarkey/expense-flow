@@ -101,7 +101,7 @@ export function BudgetsPage() {
   const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
 
   return (
-    <div className="transition-page px-4 pt-12 pb-24 md:pt-6">
+    <div className="transition-page px-4 pt-12 pb-24 md:px-8 md:pt-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -111,7 +111,7 @@ export function BudgetsPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-xl font-bold">Budgets</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Budgets</h1>
         </div>
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="mr-1 h-4 w-4" />

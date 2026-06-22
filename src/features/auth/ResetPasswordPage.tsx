@@ -52,8 +52,8 @@ export function ResetPasswordPage() {
   // No recovery session means the link is missing, invalid, or expired.
   if (!session) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
+      <div className="auth-shell flex min-h-screen flex-col items-center justify-center px-5 py-10">
+        <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 text-center md:p-8">
           <h1 className="text-2xl font-bold">Invalid or expired link</h1>
           <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
             This password reset link is no longer valid. Please request a new
@@ -73,8 +73,8 @@ export function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
+      <div className="auth-shell flex min-h-screen flex-col items-center justify-center px-5 py-10">
+        <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 text-center md:p-8">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
             <CheckCircle2 className="h-7 w-7 text-emerald-500" />
           </div>
@@ -88,13 +88,13 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="auth-shell flex min-h-screen flex-col items-center justify-center px-5 py-10">
+      <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 md:p-8">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[hsl(var(--primary))]">
-            <KeyRound className="h-7 w-7 text-white" />
+          <div className="brand-mark mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl">
+            <KeyRound className="h-7 w-7 text-slate-950" />
           </div>
-          <h1 className="text-2xl font-bold">Set a new password</h1>
+          <h1 className="text-gradient text-3xl font-bold tracking-tight">Set a new password</h1>
           <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
             Choose a new password for your account.
           </p>

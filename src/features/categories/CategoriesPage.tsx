@@ -75,7 +75,7 @@ export function CategoriesPage() {
   ];
 
   return (
-    <div className="transition-page px-4 pt-12 pb-24 md:pt-6">
+    <div className="transition-page px-4 pt-12 pb-24 md:px-8 md:pt-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button

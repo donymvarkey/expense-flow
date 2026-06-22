@@ -37,8 +37,8 @@ export function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
+      <div className="auth-shell flex min-h-screen flex-col items-center justify-center px-5 py-10">
+        <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 text-center md:p-8">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
             <Mail className="h-7 w-7 text-emerald-500" />
           </div>
@@ -59,8 +59,8 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="auth-shell flex min-h-screen flex-col items-center justify-center px-5 py-10">
+      <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 md:p-8">
         <div className="mb-8">
           <Link
             to="/login"
@@ -71,7 +71,7 @@ export function ForgotPasswordPage() {
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold">Reset password</h1>
+        <h1 className="text-gradient text-3xl font-bold tracking-tight">Reset password</h1>
         <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
           Enter your email and we&apos;ll send you a reset link.
         </p>

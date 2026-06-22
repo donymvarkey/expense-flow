@@ -140,11 +140,11 @@ export function AnalyticsPage() {
   }
 
   return (
-    <div className="transition-page px-4 pt-12 pb-24 md:pt-6">
+    <div className="transition-page px-4 pt-12 pb-24 md:px-8 md:pt-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Analytics</h1>
-        <div className="flex rounded-full bg-[hsl(var(--muted))] p-1">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-500">Insights</p><h1 className="text-2xl font-bold tracking-tight">Analytics</h1></div>
+        <div className="glass-control flex rounded-full p-1">
           <button
             onClick={() => setPeriod('6m')}
             className={cn(

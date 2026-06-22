@@ -87,10 +87,10 @@ export function TransactionsPage() {
   );
 
   return (
-    <div className="transition-page px-4 pt-12 md:pt-6">
+    <div className="transition-page px-4 pt-12 md:px-8 md:pt-8">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Transactions</h1>
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-500">Money activity</p><h1 className="text-2xl font-bold tracking-tight">Transactions</h1></div>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
@@ -103,7 +103,7 @@ export function TransactionsPage() {
       </div>
 
       {/* Search */}
-      <div className="mb-4 flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3">
+      <div className="glass-control mb-4 flex items-center gap-2 rounded-2xl px-4">
         <Search className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
         <input
           type="text"
@@ -121,7 +121,7 @@ export function TransactionsPage() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="mb-4 space-y-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+        <div className="glass-panel mb-4 space-y-4 rounded-3xl p-4">
           {/* Type */}
           <div>
             <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">Type</p>
@@ -223,7 +223,7 @@ export function TransactionsPage() {
             >
               <button
                 onClick={() => navigate(`/transactions/${t.id}`)}
-                className="flex w-full items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-left transition-colors active:bg-[hsl(var(--accent))]"
+                className="glass-panel flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-500/20 active:scale-[0.99]"
               >
                 <div
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"

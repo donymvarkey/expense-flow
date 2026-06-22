@@ -74,16 +74,16 @@ export function QuickAddPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
+    <div className="page-shell flex min-h-[100dvh] flex-col px-3 sm:px-4">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-12 md:pt-4">
+      <div className="flex items-center justify-between pt-12 md:pt-6">
         <button
           onClick={() => navigate(-1)}
           className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex rounded-full bg-[hsl(var(--muted))] p-1">
+        <div className="glass-control flex rounded-full p-1">
           <button
             onClick={() => setType('expense')}
             className={cn(
@@ -116,13 +116,13 @@ export function QuickAddPage() {
       </div>
 
       {/* Amount Display */}
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
+      <div className="flex min-h-48 flex-1 flex-col items-center justify-center px-2 py-5">
         <p className="text-sm text-[hsl(var(--muted-foreground))]">
           {type === 'expense' ? 'Expense Amount' : 'Income Amount'}
         </p>
         <p
           className={cn(
-            'mt-2 text-5xl font-bold tabular-nums',
+            'mt-2 max-w-full truncate text-5xl font-bold tracking-[-0.05em] tabular-nums sm:text-6xl',
             type === 'expense' ? 'text-red-400' : 'text-emerald-400'
           )}
         >
@@ -140,7 +140,7 @@ export function QuickAddPage() {
       </div>
 
       {/* Category Selection */}
-      <div className="px-4 pb-3">
+      <div className="pb-3">
         <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
           Category
         </p>
@@ -152,8 +152,8 @@ export function QuickAddPage() {
               className={cn(
                 'shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-colors',
                 selectedCategory === cat.id
-                  ? 'bg-[hsl(var(--primary))] text-white'
-                  : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+                  ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
+                  : 'glass-control text-[hsl(var(--muted-foreground))]'
               )}
             >
               {cat.name}
@@ -163,13 +163,13 @@ export function QuickAddPage() {
       </div>
 
       {/* Numeric Keypad */}
-      <div className="grid grid-cols-3 gap-1 px-4 pb-4 safe-area-bottom">
+      <div className="grid grid-cols-3 gap-2 pb-4 safe-area-bottom">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'].map(
           (key) => (
             <button
               key={key}
               onClick={() => handleKeyPress(key)}
-              className="flex h-14 items-center justify-center rounded-xl text-xl font-medium active:bg-[hsl(var(--accent))] transition-colors"
+              className="glass-control flex h-13 items-center justify-center rounded-2xl text-lg font-semibold transition-all active:scale-95 active:bg-emerald-500/10 sm:h-14"
             >
               {key === 'backspace' ? (
                 <Delete className="h-5 w-5" />
@@ -182,11 +182,11 @@ export function QuickAddPage() {
       </div>
 
       {/* Save Button */}
-      <div className="px-4 pb-6 safe-area-bottom">
+      <div className="pb-5 safe-area-bottom">
         <button
           onClick={handleSave}
           disabled={saving || amount === '0' || !selectedCategory}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[hsl(var(--primary))] py-4 text-sm font-semibold text-white disabled:opacity-50 active:scale-[0.98] transition-transform"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 py-4 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 active:scale-[0.98]"
         >
           <Check className="h-4 w-4" />
           {saving ? 'Saving...' : 'Save Transaction'}
