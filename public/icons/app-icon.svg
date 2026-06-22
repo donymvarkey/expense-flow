@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="72" y1="36" x2="438" y2="476" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111C33"/>
+      <stop offset="1" stop-color="#06101E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="132" y1="122" x2="386" y2="394" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6EE7B7"/>
+      <stop offset="0.55" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+    <filter id="shadow" x="64" y="70" width="392" height="390" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000814" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <circle cx="424" cy="90" r="94" fill="#2563EB" opacity="0.13"/>
+  <circle cx="74" cy="430" r="126" fill="#10B981" opacity="0.11"/>
+  <g filter="url(#shadow)">
+    <path d="M126 175c0-29.8 24.2-54 54-54h152c29.8 0 54 24.2 54 54v162c0 29.8-24.2 54-54 54H180c-29.8 0-54-24.2-54-54V175Z" fill="url(#accent)"/>
+    <path d="M126 211h260v40H126v-40Z" fill="#D1FAE5" opacity="0.28"/>
+    <path d="M294 251h92v86c0 29.8-24.2 54-54 54h-38c-27.6 0-50-22.4-50-50v-40c0-27.6 22.4-50 50-50Z" fill="#052E2B" opacity="0.92"/>
+    <circle cx="298" cy="321" r="13" fill="#A7F3D0"/>
+    <path d="M166 196c0-19.9 16.1-36 36-36h139c15.1 0 28 9.3 33.3 22.5-7.9-4.2-16.9-6.5-26.3-6.5H202c-19.9 0-36 16.1-36 36v-16Z" fill="#ECFDF5" opacity="0.48"/>
+  </g>
+</svg>

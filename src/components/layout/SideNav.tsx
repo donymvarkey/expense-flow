@@ -21,13 +21,16 @@ export function SideNav() {
   const navigate = useNavigate();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col border-r border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-6 md:flex">
+    <aside className="glass-panel fixed bottom-5 left-5 top-5 z-40 hidden w-60 flex-col rounded-[2rem] px-4 py-6 md:flex">
       {/* Brand */}
-      <div className="mb-8 flex items-center gap-2 px-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[hsl(var(--primary))]">
-          <Wallet className="h-5 w-5 text-[hsl(var(--primary-foreground))]" />
+      <div className="mb-10 flex items-center gap-3 px-2">
+        <div className="brand-mark flex h-10 w-10 items-center justify-center rounded-2xl">
+          <Wallet className="h-5 w-5 text-slate-950" />
         </div>
-        <span className="text-lg font-bold">ExpenseFlow</span>
+        <div>
+          <span className="block text-base font-bold tracking-tight">ExpenseFlow</span>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-500">Money, clarified</span>
+        </div>
       </div>
 
       {/* Nav items */}
@@ -39,10 +42,10 @@ export function SideNav() {
               key={path}
               onClick={() => navigate(path)}
               className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-all',
                 isActive
-                  ? 'bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]'
+                  ? 'bg-emerald-500/12 text-emerald-500 shadow-inner shadow-emerald-500/5'
+                  : 'text-[hsl(var(--muted-foreground))] hover:bg-white/5 hover:text-[hsl(var(--foreground))]'
               )}
             >
               <Icon className="h-5 w-5" />
@@ -55,7 +58,7 @@ export function SideNav() {
       {/* Add transaction */}
       <button
         onClick={() => navigate('/add')}
-        className="flex items-center justify-center gap-2 rounded-xl bg-[hsl(var(--primary))] px-3 py-2.5 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-transform active:scale-[0.98]"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 px-3 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:scale-[0.98]"
       >
         <Plus className="h-5 w-5" />
         Add Transaction

@@ -62,7 +62,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-lg animate-in slide-in-from-bottom-2',
+        'glass-panel flex items-start gap-3 rounded-2xl p-4 shadow-xl animate-in slide-in-from-bottom-2',
         toast.variant === 'error' && 'border-[hsl(var(--destructive))]/50',
         toast.variant === 'success' && 'border-emerald-500/50'
       )}
