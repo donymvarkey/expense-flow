@@ -21,10 +21,23 @@ export async function createCategory(
   userId: string,
   input: CategoryInput
 ): Promise<Category> {
+  const normalizedName = input.name.trim();
+  if (!normalizedName) throw new Error('Category name is required');
+
+  const duplicate = (await db.categories
+    .where('user_id')
+    .equals(userId)
+    .toArray()).some(
+    (category) =>
+      category.type === input.type &&
+      category.name.trim().toLowerCase() === normalizedName.toLowerCase()
+  );
+  if (duplicate) throw new Error('A category with this name already exists');
+
   const category: Category = {
     id: generateId(),
     user_id: userId,
-    name: input.name,
+    name: normalizedName,
     type: input.type,
     icon: input.icon,
     color: input.color,
@@ -46,9 +59,24 @@ export async function updateCategory(
   const existing = await db.categories.get(id);
   if (!existing) throw new Error('Category not found');
 
+  const normalizedName = input.name?.trim() ?? existing.name;
+  if (!normalizedName) throw new Error('Category name is required');
+
+  const duplicate = (await db.categories
+    .where('user_id')
+    .equals(userId)
+    .toArray()).some(
+    (category) =>
+      category.id !== id &&
+      category.type === (input.type ?? existing.type) &&
+      category.name.trim().toLowerCase() === normalizedName.toLowerCase()
+  );
+  if (duplicate) throw new Error('A category with this name already exists');
+
   const updated: Category = {
     ...existing,
     ...input,
+    name: normalizedName,
     sync_status: 'pending',
   };
 

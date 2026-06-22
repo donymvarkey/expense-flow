@@ -33,7 +33,13 @@ const seedingInProgress = new Set<string>();
 // keeping the earliest-created one. Any transactions pointing at a removed
 // duplicate are remapped to the surviving category so history stays intact.
 export async function dedupeCategories(userId: string): Promise<void> {
-  await db.transaction('rw', db.categories, db.transactions, async () => {
+  await db.transaction(
+    'rw',
+    db.categories,
+    db.transactions,
+    db.budgets,
+    db.syncQueue,
+    async () => {
     const categories = await db.categories
       .where('user_id')
       .equals(userId)
@@ -49,7 +55,7 @@ export async function dedupeCategories(userId: string): Promise<void> {
     );
 
     for (const cat of sorted) {
-      const key = `${cat.type}:${cat.name.toLowerCase()}`;
+      const key = `${cat.type}:${cat.name.trim().toLowerCase()}`;
       const kept = keepByKey.get(key);
       if (!kept) {
         keepByKey.set(key, cat);
@@ -61,19 +67,130 @@ export async function dedupeCategories(userId: string): Promise<void> {
 
     if (toDelete.length === 0) return;
 
-    // Repoint transactions that referenced a removed duplicate.
-    const affected = await db.transactions
+    const now = new Date().toISOString();
+    const queued = await db.syncQueue
       .where('user_id')
       .equals(userId)
       .toArray();
-    const updates = affected
+
+    const queueUpsert = async (
+      tableName: 'transactions' | 'budgets',
+      record: Transaction | Budget
+    ) => {
+      const existing = queued.filter(
+        (item) =>
+          item.table_name === tableName && item.payload['id'] === record.id
+      );
+      const pendingWrites = existing.filter(
+        (item) => item.action_type !== 'delete'
+      );
+
+      if (pendingWrites.length > 0) {
+        for (const pendingWrite of pendingWrites) {
+          await db.syncQueue.update(pendingWrite.id, {
+            payload: { ...record },
+            status: 'pending',
+            retry_count: 0,
+          });
+        }
+      } else if (!existing.some((item) => item.action_type === 'delete')) {
+        await db.syncQueue.add({
+          id: crypto.randomUUID(),
+          user_id: userId,
+          action_type: 'update',
+          table_name: tableName,
+          payload: { ...record },
+          status: 'pending',
+          retry_count: 0,
+          created_at: now,
+        });
+      }
+    };
+
+    const queueDelete = async (
+      tableName: 'categories' | 'budgets',
+      recordId: string
+    ) => {
+      const existingIds = queued
+        .filter(
+          (item) =>
+            item.table_name === tableName && item.payload['id'] === recordId
+        )
+        .map((item) => item.id);
+      if (existingIds.length > 0) await db.syncQueue.bulkDelete(existingIds);
+
+      await db.syncQueue.add({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        action_type: 'delete',
+        table_name: tableName,
+        payload: { id: recordId },
+        status: 'pending',
+        retry_count: 0,
+        created_at: now,
+      });
+    };
+
+    // Repoint transactions that referenced a removed duplicate.
+    const transactions = await db.transactions
+      .where('user_id')
+      .equals(userId)
+      .toArray();
+    const transactionUpdates = transactions
       .filter((t) => remap.has(t.category_id))
-      .map((t) => ({ ...t, category_id: remap.get(t.category_id)! }));
-    if (updates.length > 0) {
-      await db.transactions.bulkPut(updates);
+      .map((t) => ({
+        ...t,
+        category_id: remap.get(t.category_id)!,
+        sync_status: 'pending' as const,
+      }));
+    if (transactionUpdates.length > 0) {
+      await db.transactions.bulkPut(transactionUpdates);
+      for (const transaction of transactionUpdates) {
+        await queueUpsert('transactions', transaction);
+      }
+    }
+
+    // Budgets also reference categories. If remapping creates the same
+    // category/month/year combination twice, keep the earliest budget.
+    const budgets = (await db.budgets
+      .where('user_id')
+      .equals(userId)
+      .toArray()).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const keptBudgetKeys = new Set<string>();
+    const budgetUpdates: Budget[] = [];
+    const budgetDeletes: string[] = [];
+
+    for (const budget of budgets) {
+      const categoryId = remap.get(budget.category_id) ?? budget.category_id;
+      const key = `${categoryId}:${budget.month}:${budget.year}`;
+      if (keptBudgetKeys.has(key)) {
+        budgetDeletes.push(budget.id);
+        continue;
+      }
+
+      keptBudgetKeys.add(key);
+      if (categoryId !== budget.category_id) {
+        budgetUpdates.push({
+          ...budget,
+          category_id: categoryId,
+          sync_status: 'pending',
+        });
+      }
+    }
+
+    if (budgetUpdates.length > 0) {
+      await db.budgets.bulkPut(budgetUpdates);
+      for (const budget of budgetUpdates) await queueUpsert('budgets', budget);
+    }
+    if (budgetDeletes.length > 0) {
+      await db.budgets.bulkDelete(budgetDeletes);
+      for (const budgetId of budgetDeletes) await queueDelete('budgets', budgetId);
     }
 
     await db.categories.bulkDelete(toDelete);
+    for (const categoryId of toDelete) {
+      await queueDelete('categories', categoryId);
+    }
   });
 }
 

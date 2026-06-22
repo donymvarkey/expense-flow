@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db, dedupeCategories } from "@/db";
 import { supabase } from "@/lib/supabase";
 import type { Budget, Category, SyncQueueItem, Transaction } from "@/types";
 import { generateId } from "@/lib/utils";
@@ -269,6 +269,7 @@ class SyncEngine {
       },
     );
 
+    await dedupeCategories(userId);
     this.notify();
   }
 
@@ -378,7 +379,8 @@ if (typeof window !== "undefined") {
       const userId = data.session?.user.id;
       if (userId) {
         void syncEngine
-          .resumeForUser(userId)
+          .hydrateFromSupabase(userId)
+          .then(() => syncEngine.resumeForUser(userId))
           .then(() => syncEngine.hydrateFromSupabase(userId));
       }
     });
