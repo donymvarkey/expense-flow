@@ -11,6 +11,38 @@ interface AuthState {
   loading: boolean;
 }
 
+const initializationInProgress = new Map<string, Promise<void>>();
+const initializedUsers = new Set<string>();
+
+function initializeLocalData(userId: string): Promise<void> {
+  if (initializedUsers.has(userId)) return Promise.resolve();
+
+  const existing = initializationInProgress.get(userId);
+  if (existing) return existing;
+
+  const initialization = (async () => {
+    if (!navigator.onLine) return;
+
+    // Supabase is authoritative. Pull first so a new device does not create a
+    // second set of defaults for an account that already has categories.
+    await syncEngine.hydrateFromSupabase(userId);
+    await seedDefaultCategories(userId);
+    await syncEngine.resumeForUser(userId);
+    await syncEngine.hydrateFromSupabase(userId);
+    initializedUsers.add(userId);
+  })()
+    .catch((error) => {
+      // Existing IndexedDB data remains available when the network is flaky.
+      console.error('Unable to refresh local data from Supabase:', error);
+    })
+    .finally(() => {
+      initializationInProgress.delete(userId);
+    });
+
+  initializationInProgress.set(userId, initialization);
+  return initialization;
+}
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -27,23 +59,29 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    const initializeLocalData = async (userId: string) => {
-      await seedDefaultCategories(userId);
-      if (navigator.onLine) {
-        await syncEngine.resumeForUser(userId);
-      }
+    let active = true;
+    let currentUserId: string | null = null;
+
+    const applySession = async (session: Session) => {
+      const userId = session.user.id;
+      currentUserId = userId;
+      await initializeLocalData(userId);
+      if (!active || currentUserId !== userId) return;
+
+      setState({
+        user: mapUser(session.user),
+        session,
+        loading: false,
+      });
     };
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setState({
-          user: mapUser(session.user),
-          session,
-          loading: false,
-        });
-        void initializeLocalData(session.user.id);
+        void applySession(session);
       } else {
+        currentUserId = null;
+        initializedUsers.clear();
         setState({ user: null, session: null, loading: false });
       }
     });
@@ -53,22 +91,22 @@ export function useAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setState({
-          user: mapUser(session.user),
-          session,
-          loading: false,
-        });
         // Run outside the auth callback so Supabase can finish persisting the
-        // new session before queued requests start using it.
+        // session before synchronization starts using it.
         window.setTimeout(() => {
-          void initializeLocalData(session.user.id);
+          void applySession(session);
         }, 0);
       } else {
+        currentUserId = null;
+        initializedUsers.clear();
         setState({ user: null, session: null, loading: false });
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {

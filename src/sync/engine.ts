@@ -1,12 +1,16 @@
 import { db } from "@/db";
 import { supabase } from "@/lib/supabase";
-import type { SyncQueueItem } from "@/types";
+import type { Budget, Category, SyncQueueItem, Transaction } from "@/types";
 import { generateId } from "@/lib/utils";
+
+type SyncTableName = "categories" | "transactions" | "budgets";
+type LocalRecord = Category | Transaction | Budget;
 
 class SyncEngine {
   private isProcessing = false;
   private rerunRequested = false;
   private resumeInProgress = new Map<string, Promise<void>>();
+  private hydrationInProgress = new Map<string, Promise<void>>();
   private listeners: Set<() => void> = new Set();
 
   subscribe(listener: () => void) {
@@ -189,6 +193,108 @@ class SyncEngine {
     return db.syncQueue.where("status").equals("failed").count();
   }
 
+  hydrateFromSupabase(userId: string): Promise<void> {
+    const existing = this.hydrationInProgress.get(userId);
+    if (existing) return existing;
+
+    const hydration = this.doHydrateFromSupabase(userId).finally(() => {
+      this.hydrationInProgress.delete(userId);
+    });
+    this.hydrationInProgress.set(userId, hydration);
+    return hydration;
+  }
+
+  private async doHydrateFromSupabase(userId: string) {
+    const tableNames: SyncTableName[] = [
+      "categories",
+      "transactions",
+      "budgets",
+    ];
+    const results = await Promise.all(
+      tableNames.map((tableName) => this.fetchAllRows(tableName, userId)),
+    );
+    const remoteByTable = new Map<SyncTableName, LocalRecord[]>(
+      tableNames.map((tableName, index) => [tableName, results[index] ?? []]),
+    );
+
+    await db.transaction(
+      "rw",
+      db.categories,
+      db.transactions,
+      db.budgets,
+      db.syncQueue,
+      async () => {
+        const queuedDeletes = new Set(
+          (await db.syncQueue
+            .where("user_id")
+            .equals(userId)
+            .and((item) => item.action_type === "delete")
+            .toArray()).map(
+            (item) => `${item.table_name}:${String(item.payload["id"])}`,
+          ),
+        );
+
+        for (const tableName of tableNames) {
+          const table = db.table(tableName);
+          const localRows = (await table
+            .where("user_id")
+            .equals(userId)
+            .toArray()) as LocalRecord[];
+          const localById = new Map(localRows.map((row) => [row.id, row]));
+          const remoteRows = remoteByTable.get(tableName) ?? [];
+          const remoteIds = new Set(remoteRows.map((row) => row.id));
+
+          const rowsToStore = remoteRows
+            .filter(
+              (row) => !queuedDeletes.has(`${tableName}:${String(row.id)}`),
+            )
+            .filter((row) => {
+              const local = localById.get(row.id);
+              return !local || local.sync_status === "synced";
+            })
+            .map((row) => ({ ...row, sync_status: "synced" }));
+
+          const syncedRowsRemovedFromServer = localRows
+            .filter(
+              (row) =>
+                row.sync_status === "synced" && !remoteIds.has(String(row.id)),
+            )
+            .map((row) => row.id);
+
+          if (rowsToStore.length > 0) await table.bulkPut(rowsToStore);
+          if (syncedRowsRemovedFromServer.length > 0) {
+            await table.bulkDelete(syncedRowsRemovedFromServer);
+          }
+        }
+      },
+    );
+
+    this.notify();
+  }
+
+  private async fetchAllRows(
+    tableName: SyncTableName,
+    userId: string,
+  ): Promise<LocalRecord[]> {
+    const pageSize = 1000;
+    const rows: LocalRecord[] = [];
+
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select("*")
+        .eq("user_id", userId)
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+
+      if (error) throw error;
+
+      const page = (data ?? []) as LocalRecord[];
+      rows.push(...page);
+      if (page.length < pageSize) return rows;
+    }
+  }
+
   resumeForUser(userId: string): Promise<void> {
     const existing = this.resumeInProgress.get(userId);
     if (existing) return existing;
@@ -270,7 +376,11 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     void supabase.auth.getSession().then(({ data }) => {
       const userId = data.session?.user.id;
-      if (userId) void syncEngine.resumeForUser(userId);
+      if (userId) {
+        void syncEngine
+          .resumeForUser(userId)
+          .then(() => syncEngine.hydrateFromSupabase(userId));
+      }
     });
   });
 }
