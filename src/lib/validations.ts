@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PAYMENT_METHODS, TRANSACTION_TYPES } from '@/types';
 
 export const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -33,11 +34,11 @@ export const resetPasswordSchema = z
 
 export const transactionSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
-  type: z.enum(['income', 'expense']),
+  type: z.enum(TRANSACTION_TYPES),
   category_id: z.string().min(1, 'Please select a category'),
   description: z.string().optional(),
   notes: z.string().optional(),
-  payment_method: z.enum(['cash', 'card', 'upi', 'bank_transfer', 'other']).optional(),
+  payment_method: z.enum(PAYMENT_METHODS).optional(),
   tags: z.array(z.string()).optional(),
   transaction_date: z.string(),
 });
@@ -50,7 +51,7 @@ export const quickAddSchema = z.object({
 
 export const categorySchema = z.object({
   name: z.string().min(1, 'Category name is required'),
-  type: z.enum(['income', 'expense']),
+  type: z.enum(TRANSACTION_TYPES),
   icon: z.string().optional(),
   color: z.string().optional(),
 });

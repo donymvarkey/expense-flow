@@ -7,6 +7,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { TransactionAmount } from '@/components/common/TransactionAmount';
+import { BUDGET_BAR_CLASS, getBudgetLevel } from '@/lib/budget';
+import { getCurrentMonth } from '@/lib/date';
 import type { DashboardStats, BudgetWithCategory, TransactionWithCategory } from '@/types';
 import {
   TrendingUp,
@@ -33,10 +37,10 @@ export function DashboardPage() {
 
     async function loadData() {
       try {
-        const now = new Date();
+        const { month, year } = getCurrentMonth();
         const [dashStats, monthlyBudgets, recent] = await Promise.all([
           getDashboardStats(user!.id),
-          getBudgets(user!.id, now.getMonth() + 1, now.getFullYear()),
+          getBudgets(user!.id, month, year),
           getTransactions(user!.id, { limit: 5, sortBy: 'newest' }),
         ]);
         setStats(dashStats);
@@ -124,15 +128,7 @@ export function DashboardPage() {
       {/* Budget Progress */}
       {budgets.length > 0 && (
         <div className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold tracking-tight">Budgets</h2>
-            <button
-              onClick={() => navigate('/budgets')}
-              className="flex items-center gap-1 text-xs font-semibold text-emerald-500"
-            >
-              View all <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <SectionHeader title="Budgets" onViewAll={() => navigate('/budgets')} />
           <div className="space-y-3">
             {budgets.slice(0, 3).map((budget) => (
               <BudgetProgressCard key={budget.id} budget={budget} />
@@ -143,15 +139,10 @@ export function DashboardPage() {
 
       {/* Recent Transactions */}
       <div className="mb-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold tracking-tight">Recent transactions</h2>
-          <button
-            onClick={() => navigate('/transactions')}
-            className="flex items-center gap-1 text-xs font-semibold text-emerald-500"
-          >
-            View all <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <SectionHeader
+          title="Recent transactions"
+          onViewAll={() => navigate('/transactions')}
+        />
         {recentTransactions.length === 0 ? (
           <Card className="py-8 text-center">
             <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -170,6 +161,26 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  onViewAll,
+}: {
+  title: string;
+  onViewAll: () => void;
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between">
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <button
+        onClick={onViewAll}
+        className="flex items-center gap-1 text-xs font-semibold text-emerald-500"
+      >
+        View all <ChevronRight className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -199,8 +210,7 @@ function StatCard({
 }
 
 function BudgetProgressCard({ budget }: { budget: BudgetWithCategory }) {
-  const isOverBudget = budget.percentage > 100;
-  const isNearLimit = budget.percentage > 80 && !isOverBudget;
+  const level = getBudgetLevel(budget.percentage);
 
   return (
     <Card>
@@ -211,19 +221,10 @@ function BudgetProgressCard({ budget }: { budget: BudgetWithCategory }) {
             {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
           </span>
         </div>
-        <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
-          <div
-            className={cn(
-              'h-full rounded-full transition-all',
-              isOverBudget
-                ? 'bg-red-500'
-                : isNearLimit
-                  ? 'bg-amber-500'
-                  : 'bg-emerald-500'
-            )}
-            style={{ width: `${Math.min(budget.percentage, 100)}%` }}
-          />
-        </div>
+        <ProgressBar
+          percentage={budget.percentage}
+          barClassName={BUDGET_BAR_CLASS[level]}
+        />
       </CardContent>
     </Card>
   );
@@ -259,15 +260,11 @@ function TransactionCard({
           {formatRelativeDate(transaction.transaction_date)}
         </p>
       </div>
-      <span
-        className={cn(
-          'text-sm font-semibold',
-          isExpense ? 'text-red-400' : 'text-emerald-400'
-        )}
-      >
-        {isExpense ? '-' : '+'}
-        {formatCurrency(transaction.amount)}
-      </span>
+      <TransactionAmount
+        type={transaction.type}
+        amount={transaction.amount}
+        className="text-sm font-semibold"
+      />
     </button>
   );
 }

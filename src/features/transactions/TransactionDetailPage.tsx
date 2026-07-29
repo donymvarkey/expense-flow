@@ -5,11 +5,12 @@ import { useToast } from '@/components/ui/toast';
 import { getTransaction, deleteTransaction } from '@/services/transactions';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency, formatDate } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import { IconButton } from '@/components/ui/icon-button';
+import { PageHeader } from '@/components/common/PageHeader';
+import { TransactionAmount } from '@/components/common/TransactionAmount';
 import type { TransactionWithCategory } from '@/types';
 import {
-  ArrowLeft,
   Edit,
   Trash2,
   Calendar,
@@ -76,44 +77,32 @@ export function TransactionDetailPage() {
 
   return (
     <div className="transition-page px-4 pt-12 md:pt-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate(`/transactions/${id}/edit`)}
-            className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
-          >
-            <Edit className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="rounded-full p-2 text-red-400 hover:bg-red-500/10"
-          >
-            <Trash2 className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        actions={
+          <>
+            <IconButton onClick={() => navigate(`/transactions/${id}/edit`)}>
+              <Edit className="h-5 w-5" />
+            </IconButton>
+            <IconButton
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-5 w-5" />
+            </IconButton>
+          </>
+        }
+      />
 
       {/* Amount */}
       <div className="mb-6 text-center">
         <p className="text-sm text-[hsl(var(--muted-foreground))]">
           {isExpense ? 'Expense' : 'Income'}
         </p>
-        <p
-          className={cn(
-            'mt-1 text-4xl font-bold',
-            isExpense ? 'text-red-400' : 'text-emerald-400'
-          )}
-        >
-          {isExpense ? '-' : '+'}
-          {formatCurrency(transaction.amount)}
-        </p>
+        <TransactionAmount
+          type={transaction.type}
+          amount={transaction.amount}
+          className="mt-1 block text-4xl font-bold"
+        />
       </div>
 
       {/* Details */}

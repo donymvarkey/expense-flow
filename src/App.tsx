@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '@/components/ui/toast';
+import { FullPageSpinner } from '@/components/ui/spinner';
 import { SettingsProvider } from '@/hooks/SettingsProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -22,14 +23,6 @@ const CategoriesPage = lazy(() => import('@/features/categories/CategoriesPage')
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ReceiptScanPage = lazy(() => import('@/features/receipts/ReceiptScanPage').then(m => ({ default: m.ReceiptScanPage })));
 
-function PageLoader() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-[hsl(var(--primary))] border-t-transparent" />
-    </div>
-  );
-}
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -43,11 +36,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[hsl(var(--primary))] border-t-transparent" />
-      </div>
-    );
+    return <FullPageSpinner />;
   }
 
   if (!user) {
@@ -61,11 +50,7 @@ function PublicRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[hsl(var(--primary))] border-t-transparent" />
-      </div>
-    );
+    return <FullPageSpinner />;
   }
 
   if (user) {
@@ -81,7 +66,7 @@ export default function App() {
       <SettingsProvider>
         <ToastProvider>
           <BrowserRouter>
-            <Suspense fallback={<PageLoader />}>
+            <Suspense fallback={<FullPageSpinner />}>
               <Routes>
                 {/* Public Routes */}
                 <Route

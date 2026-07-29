@@ -1,6 +1,10 @@
 import { db } from '@/db';
+import { rowsForUser, unknownCategory } from '@/db/queries';
+import { getCategoryMap } from '@/services/categories';
 import { syncEngine } from '@/sync/engine';
 import { generateId } from '@/lib/utils';
+import { getMonthRange } from '@/lib/date';
+import { filterByDateRange, percentageOf, sumAmounts } from '@/lib/aggregations';
 import type { Budget, BudgetWithCategory } from '@/types';
 import type { BudgetInput } from '@/lib/validations';
 
@@ -9,55 +13,40 @@ export async function getBudgets(
   month: number,
   year: number
 ): Promise<BudgetWithCategory[]> {
-  const budgets = await db.budgets.where('user_id').equals(userId).toArray();
+  const budgets = await rowsForUser(db.budgets, userId);
 
   const monthlyBudgets = budgets.filter(
     (b) => b.month === month && b.year === year
   );
 
-  const categories = await db.categories
-    .where('user_id')
-    .equals(userId)
-    .toArray();
-  const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const categoryMap = await getCategoryMap(userId);
 
   // Get spending for each category this month
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]!;
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0]!;
-
-  const transactions = await db.transactions
-    .where('user_id')
-    .equals(userId)
-    .toArray();
-
-  const monthlyExpenses = transactions.filter(
-    (t) =>
-      t.type === 'expense' &&
-      t.transaction_date >= startDate &&
-      t.transaction_date <= endDate
+  const transactions = await rowsForUser(db.transactions, userId);
+  const monthlyExpenses = filterByDateRange(
+    transactions.filter((t) => t.type === 'expense'),
+    getMonthRange(year, month)
   );
 
   return monthlyBudgets.map((budget) => {
-    const category = categoryMap.get(budget.category_id) || {
-      id: budget.category_id,
-      user_id: userId,
-      name: 'Unknown',
-      type: 'expense' as const,
-      created_at: budget.created_at,
-      sync_status: 'synced' as const,
-    };
+    const category =
+      categoryMap.get(budget.category_id) ||
+      unknownCategory({
+        id: budget.category_id,
+        userId,
+        type: 'expense',
+        createdAt: budget.created_at,
+      });
 
-    const spent = monthlyExpenses
-      .filter((t) => t.category_id === budget.category_id)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+    const spent = sumAmounts(
+      monthlyExpenses.filter((t) => t.category_id === budget.category_id)
+    );
 
     return {
       ...budget,
       category,
       spent,
-      percentage,
+      percentage: percentageOf(spent, budget.amount),
     };
   });
 }
