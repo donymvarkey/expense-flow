@@ -4,9 +4,18 @@ import { useToast } from '@/components/ui/toast';
 import { createTransaction } from '@/services/transactions';
 import { getCategories } from '@/services/categories';
 import { useNavigate } from 'react-router-dom';
-import type { Category } from '@/types';
+import { Chip } from '@/components/ui/chip';
+import { FieldLabel } from '@/components/ui/field-label';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { BackButton } from '@/components/common/PageHeader';
+import {
+  TRANSACTION_TYPE_OPTIONS,
+  TRANSACTION_TYPE_TEXT_CLASS,
+} from '@/lib/transaction-display';
+import { todayISODate } from '@/lib/date';
+import type { Category, TransactionType } from '@/types';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Camera, Check, Delete } from 'lucide-react';
+import { Camera, Check, Delete } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 
 export function QuickAddPage() {
@@ -18,7 +27,7 @@ export function QuickAddPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
-  const [type, setType] = useState<'expense' | 'income'>('expense');
+  const [type, setType] = useState<TransactionType>('expense');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -55,7 +64,7 @@ export function QuickAddPage() {
         type,
         category_id: selectedCategory,
         notes: notes || undefined,
-        transaction_date: new Date().toISOString().split('T')[0]!,
+        transaction_date: todayISODate(),
       });
 
       toast({
@@ -77,36 +86,13 @@ export function QuickAddPage() {
     <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-12 md:pt-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="flex rounded-full bg-[hsl(var(--muted))] p-1">
-          <button
-            onClick={() => setType('expense')}
-            className={cn(
-              'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-              type === 'expense'
-                ? 'bg-red-500/20 text-red-400'
-                : 'text-[hsl(var(--muted-foreground))]'
-            )}
-          >
-            Expense
-          </button>
-          <button
-            onClick={() => setType('income')}
-            className={cn(
-              'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-              type === 'income'
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : 'text-[hsl(var(--muted-foreground))]'
-            )}
-          >
-            Income
-          </button>
-        </div>
+        <BackButton />
+        <SegmentedControl
+          shape="pill"
+          options={TRANSACTION_TYPE_OPTIONS}
+          value={type}
+          onChange={setType}
+        />
         <button
           onClick={() => navigate('/scan-receipt')}
           className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
@@ -123,7 +109,7 @@ export function QuickAddPage() {
         <p
           className={cn(
             'mt-2 text-5xl font-bold tabular-nums',
-            type === 'expense' ? 'text-red-400' : 'text-emerald-400'
+            TRANSACTION_TYPE_TEXT_CLASS[type]
           )}
         >
           {currency} {amount}
@@ -141,23 +127,17 @@ export function QuickAddPage() {
 
       {/* Category Selection */}
       <div className="px-4 pb-3">
-        <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
-          Category
-        </p>
+        <FieldLabel>Category</FieldLabel>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {categories.map((cat) => (
-            <button
+            <Chip
               key={cat.id}
+              className="shrink-0 px-4 py-2"
+              selected={selectedCategory === cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={cn(
-                'shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-colors',
-                selectedCategory === cat.id
-                  ? 'bg-[hsl(var(--primary))] text-white'
-                  : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-              )}
             >
               {cat.name}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>

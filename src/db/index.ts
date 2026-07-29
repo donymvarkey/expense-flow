@@ -1,4 +1,7 @@
 import Dexie, { type Table } from 'dexie';
+import { rowsForUser } from '@/db/queries';
+import { createSyncQueueItem } from '@/lib/sync-queue';
+import { generateId } from '@/lib/utils';
 import type { Transaction, Category, Budget, SyncQueueItem } from '@/types';
 
 export class ExpenseFlowDB extends Dexie {
@@ -40,10 +43,7 @@ export async function dedupeCategories(userId: string): Promise<void> {
     db.budgets,
     db.syncQueue,
     async () => {
-    const categories = await db.categories
-      .where('user_id')
-      .equals(userId)
-      .toArray();
+    const categories = await rowsForUser(db.categories, userId);
 
     const keepByKey = new Map<string, Category>();
     const remap = new Map<string, string>(); // duplicateId -> keptId
@@ -68,10 +68,7 @@ export async function dedupeCategories(userId: string): Promise<void> {
     if (toDelete.length === 0) return;
 
     const now = new Date().toISOString();
-    const queued = await db.syncQueue
-      .where('user_id')
-      .equals(userId)
-      .toArray();
+    const queued = await rowsForUser(db.syncQueue, userId);
 
     const queueUpsert = async (
       tableName: 'transactions' | 'budgets',
@@ -94,16 +91,15 @@ export async function dedupeCategories(userId: string): Promise<void> {
           });
         }
       } else if (!existing.some((item) => item.action_type === 'delete')) {
-        await db.syncQueue.add({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          action_type: 'update',
-          table_name: tableName,
-          payload: { ...record },
-          status: 'pending',
-          retry_count: 0,
-          created_at: now,
-        });
+        await db.syncQueue.add(
+          createSyncQueueItem({
+            userId,
+            actionType: 'update',
+            tableName,
+            payload: { ...record },
+            createdAt: now,
+          })
+        );
       }
     };
 
@@ -119,23 +115,19 @@ export async function dedupeCategories(userId: string): Promise<void> {
         .map((item) => item.id);
       if (existingIds.length > 0) await db.syncQueue.bulkDelete(existingIds);
 
-      await db.syncQueue.add({
-        id: crypto.randomUUID(),
-        user_id: userId,
-        action_type: 'delete',
-        table_name: tableName,
-        payload: { id: recordId },
-        status: 'pending',
-        retry_count: 0,
-        created_at: now,
-      });
+      await db.syncQueue.add(
+        createSyncQueueItem({
+          userId,
+          actionType: 'delete',
+          tableName,
+          payload: { id: recordId },
+          createdAt: now,
+        })
+      );
     };
 
     // Repoint transactions that referenced a removed duplicate.
-    const transactions = await db.transactions
-      .where('user_id')
-      .equals(userId)
-      .toArray();
+    const transactions = await rowsForUser(db.transactions, userId);
     const transactionUpdates = transactions
       .filter((t) => remap.has(t.category_id))
       .map((t) => ({
@@ -152,10 +144,9 @@ export async function dedupeCategories(userId: string): Promise<void> {
 
     // Budgets also reference categories. If remapping creates the same
     // category/month/year combination twice, keep the earliest budget.
-    const budgets = (await db.budgets
-      .where('user_id')
-      .equals(userId)
-      .toArray()).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const budgets = (await rowsForUser(db.budgets, userId)).sort((a, b) =>
+      a.created_at.localeCompare(b.created_at)
+    );
     const keptBudgetKeys = new Set<string>();
     const budgetUpdates: Budget[] = [];
     const budgetDeletes: string[] = [];
@@ -235,41 +226,36 @@ export async function seedDefaultCategories(userId: string) {
 
       const now = new Date().toISOString();
 
+      const toCategory = (
+        defaults: { name: string; icon: string; color: string },
+        type: Category['type']
+      ): Category => ({
+        id: generateId(),
+        user_id: userId,
+        name: defaults.name,
+        icon: defaults.icon,
+        color: defaults.color,
+        type,
+        created_at: now,
+        sync_status: 'pending',
+      });
+
       const categories: Category[] = [
-        ...expenseCategories.map((c) => ({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          name: c.name,
-          icon: c.icon,
-          color: c.color,
-          type: 'expense' as const,
-          created_at: now,
-          sync_status: 'pending' as const,
-        })),
-        ...incomeCategories.map((c) => ({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          name: c.name,
-          icon: c.icon,
-          color: c.color,
-          type: 'income' as const,
-          created_at: now,
-          sync_status: 'pending' as const,
-        })),
+        ...expenseCategories.map((c) => toCategory(c, 'expense')),
+        ...incomeCategories.map((c) => toCategory(c, 'income')),
       ];
 
       await db.categories.bulkAdd(categories);
       await db.syncQueue.bulkAdd(
-        categories.map((category) => ({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          action_type: 'create' as const,
-          table_name: 'categories',
-          payload: { ...category },
-          status: 'pending' as const,
-          retry_count: 0,
-          created_at: now,
-        }))
+        categories.map((category) =>
+          createSyncQueueItem({
+            userId,
+            actionType: 'create',
+            tableName: 'categories',
+            payload: { ...category },
+            createdAt: now,
+          })
+        )
       );
     });
   } finally {

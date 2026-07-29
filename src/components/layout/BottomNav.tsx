@@ -1,13 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ArrowLeftRight, BarChart3, User } from 'lucide-react';
+import { NAV_ACTIVE_CLASS, navItems } from '@/components/layout/nav-items';
 import { cn } from '@/lib/utils';
-
-const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-  { path: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { path: '/profile', icon: User, label: 'Profile' },
-];
 
 export function BottomNav() {
   const location = useLocation();
@@ -25,7 +18,7 @@ export function BottomNav() {
               className={cn(
                 'relative flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 transition-all',
                 isActive
-                  ? 'bg-emerald-500/12 text-emerald-500 shadow-inner shadow-emerald-500/5'
+                  ? NAV_ACTIVE_CLASS
                   : 'text-[hsl(var(--muted-foreground))]'
               )}
             >

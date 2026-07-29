@@ -1,4 +1,5 @@
 import { db } from '@/db';
+import { rowsForUser } from '@/db/queries';
 import { syncEngine } from '@/sync/engine';
 import { generateId } from '@/lib/utils';
 import type { Category } from '@/types';
@@ -8,13 +9,40 @@ export async function getCategories(
   userId: string,
   type?: 'income' | 'expense'
 ): Promise<Category[]> {
-  let categories = await db.categories.where('user_id').equals(userId).toArray();
+  let categories = await rowsForUser(db.categories, userId);
 
   if (type) {
     categories = categories.filter((c) => c.type === type);
   }
 
   return categories.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getCategoryMap(
+  userId: string
+): Promise<Map<string, Category>> {
+  const categories = await rowsForUser(db.categories, userId);
+  return new Map(categories.map((c) => [c.id, c]));
+}
+
+function isSameCategoryName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+async function assertNameAvailable(
+  userId: string,
+  name: string,
+  type: Category['type'],
+  excludeId?: string
+): Promise<void> {
+  const categories = await rowsForUser(db.categories, userId);
+  const duplicate = categories.some(
+    (category) =>
+      category.id !== excludeId &&
+      category.type === type &&
+      isSameCategoryName(category.name, name)
+  );
+  if (duplicate) throw new Error('A category with this name already exists');
 }
 
 export async function createCategory(
@@ -24,15 +52,7 @@ export async function createCategory(
   const normalizedName = input.name.trim();
   if (!normalizedName) throw new Error('Category name is required');
 
-  const duplicate = (await db.categories
-    .where('user_id')
-    .equals(userId)
-    .toArray()).some(
-    (category) =>
-      category.type === input.type &&
-      category.name.trim().toLowerCase() === normalizedName.toLowerCase()
-  );
-  if (duplicate) throw new Error('A category with this name already exists');
+  await assertNameAvailable(userId, normalizedName, input.type);
 
   const category: Category = {
     id: generateId(),
@@ -62,16 +82,12 @@ export async function updateCategory(
   const normalizedName = input.name?.trim() ?? existing.name;
   if (!normalizedName) throw new Error('Category name is required');
 
-  const duplicate = (await db.categories
-    .where('user_id')
-    .equals(userId)
-    .toArray()).some(
-    (category) =>
-      category.id !== id &&
-      category.type === (input.type ?? existing.type) &&
-      category.name.trim().toLowerCase() === normalizedName.toLowerCase()
+  await assertNameAvailable(
+    userId,
+    normalizedName,
+    input.type ?? existing.type,
+    id
   );
-  if (duplicate) throw new Error('A category with this name already exists');
 
   const updated: Category = {
     ...existing,

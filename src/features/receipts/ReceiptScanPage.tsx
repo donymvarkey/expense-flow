@@ -4,8 +4,28 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { createTransaction } from '@/services/transactions';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Camera, Upload, Loader2 } from 'lucide-react';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { PageHeader } from '@/components/common/PageHeader';
+import { todayISODate } from '@/lib/date';
+import { Camera, Upload, Loader2 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
+
+function ReceiptField({
+  label,
+  ...inputProps
+}: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  return (
+    <div>
+      <label className="text-xs text-[hsl(var(--muted-foreground))]">
+        {label}
+      </label>
+      <input
+        className="mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+        {...inputProps}
+      />
+    </div>
+  );
+}
 
 interface ExtractedData {
   amount: number | null;
@@ -58,7 +78,7 @@ export function ReceiptScanPage() {
       // Pre-fill edit fields
       setEditAmount(extracted.amount?.toString() || extracted.total?.toString() || '');
       setEditMerchant(extracted.merchant || '');
-      setEditDate(extracted.date || new Date().toISOString().split('T')[0]!);
+      setEditDate(extracted.date || todayISODate());
 
       await worker.terminate();
     } catch (error) {
@@ -123,7 +143,7 @@ export function ReceiptScanPage() {
         type: 'expense',
         category_id: '', // Will need to select
         description: editMerchant || undefined,
-        transaction_date: editDate || new Date().toISOString().split('T')[0]!,
+        transaction_date: editDate || todayISODate(),
       });
 
       toast({ title: 'Expense added from receipt', variant: 'success' });
@@ -135,16 +155,7 @@ export function ReceiptScanPage() {
 
   return (
     <div className="transition-page min-h-screen px-4 pt-12 md:pt-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="text-lg font-bold">Scan Receipt</h1>
-      </div>
+      <PageHeader title="Scan Receipt" titleClassName="text-lg" />
 
       {!imageUrl ? (
         <div className="flex flex-col items-center gap-4 py-12">
@@ -207,12 +218,7 @@ export function ReceiptScanPage() {
               <p className="text-sm text-[hsl(var(--muted-foreground))]">
                 Scanning receipt... {progress}%
               </p>
-              <div className="h-2 w-48 rounded-full bg-[hsl(var(--muted))]">
-                <div
-                  className="h-full rounded-full bg-[hsl(var(--primary))] transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+              <ProgressBar percentage={progress} className="w-48" />
             </div>
           )}
 
@@ -222,40 +228,25 @@ export function ReceiptScanPage() {
               <h3 className="text-sm font-semibold">Extracted Information</h3>
 
               <div className="space-y-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                <div>
-                  <label className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Amount
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Merchant
-                  </label>
-                  <input
-                    type="text"
-                    value={editMerchant}
-                    onChange={(e) => setEditMerchant(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  />
-                </div>
+                <ReceiptField
+                  label="Amount"
+                  type="number"
+                  step="0.01"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                />
+                <ReceiptField
+                  label="Merchant"
+                  type="text"
+                  value={editMerchant}
+                  onChange={(e) => setEditMerchant(e.target.value)}
+                />
+                <ReceiptField
+                  label="Date"
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
               </div>
 
               <div className="flex gap-3">

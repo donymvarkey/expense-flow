@@ -3,11 +3,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { getTransactions } from '@/services/transactions';
 import { getCategories } from '@/services/categories';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrency, formatRelativeDate } from '@/lib/utils';
+import { formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { TransactionWithCategory, Category } from '@/types';
+import { Chip } from '@/components/ui/chip';
+import { FieldLabel } from '@/components/ui/field-label';
+import { TransactionAmount } from '@/components/common/TransactionAmount';
+import type { TransactionWithCategory, Category, TransactionType } from '@/types';
 import {
   Search,
   Filter,
@@ -18,7 +21,14 @@ import {
 
 const BATCH_SIZE = 20;
 
-type SortOption = 'newest' | 'oldest' | 'highest' | 'lowest';
+const SORT_OPTIONS = ['newest', 'oldest', 'highest', 'lowest'] as const;
+type SortOption = (typeof SORT_OPTIONS)[number];
+
+const TYPE_FILTERS: { value: TransactionType | undefined; label: string }[] = [
+  { value: undefined, label: 'All' },
+  { value: 'expense', label: 'Expense' },
+  { value: 'income', label: 'Income' },
+];
 
 export function TransactionsPage() {
   const { user } = useAuth();
@@ -31,7 +41,7 @@ export function TransactionsPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'income' | 'expense' | undefined>();
+  const [typeFilter, setTypeFilter] = useState<TransactionType | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showFilters, setShowFilters] = useState(false);
@@ -124,77 +134,58 @@ export function TransactionsPage() {
         <div className="mb-4 space-y-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
           {/* Type */}
           <div>
-            <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">Type</p>
+            <FieldLabel>Type</FieldLabel>
             <div className="flex gap-2">
-              {[undefined, 'expense', 'income'].map((t) => (
-                <button
-                  key={t || 'all'}
-                  onClick={() => setTypeFilter(t as 'income' | 'expense' | undefined)}
-                  className={cn(
-                    'rounded-full px-3 py-1.5 text-xs font-medium',
-                    typeFilter === t
-                      ? 'bg-[hsl(var(--primary))] text-white'
-                      : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                  )}
+              {TYPE_FILTERS.map(({ value, label }) => (
+                <Chip
+                  key={label}
+                  selected={typeFilter === value}
+                  onClick={() => setTypeFilter(value)}
                 >
-                  {t ? t.charAt(0).toUpperCase() + t.slice(1) : 'All'}
-                </button>
+                  {label}
+                </Chip>
               ))}
             </div>
           </div>
 
           {/* Category */}
           <div>
-            <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">Category</p>
+            <FieldLabel>Category</FieldLabel>
             <div className="flex flex-wrap gap-2">
-              <button
+              <Chip
+                selected={!categoryFilter}
                 onClick={() => setCategoryFilter(undefined)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-medium',
-                  !categoryFilter
-                    ? 'bg-[hsl(var(--primary))] text-white'
-                    : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                )}
               >
                 All
-              </button>
+              </Chip>
               {categories.map((cat) => (
-                <button
+                <Chip
                   key={cat.id}
+                  selected={categoryFilter === cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={cn(
-                    'rounded-full px-3 py-1.5 text-xs font-medium',
-                    categoryFilter === cat.id
-                      ? 'bg-[hsl(var(--primary))] text-white'
-                      : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                  )}
                 >
                   {cat.name}
-                </button>
+                </Chip>
               ))}
             </div>
           </div>
 
           {/* Sort */}
           <div>
-            <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
+            <FieldLabel>
               <ArrowUpDown className="mr-1 inline h-3 w-3" />
               Sort
-            </p>
+            </FieldLabel>
             <div className="flex flex-wrap gap-2">
-              {(['newest', 'oldest', 'highest', 'lowest'] as SortOption[]).map((s) => (
-                <button
+              {SORT_OPTIONS.map((s) => (
+                <Chip
                   key={s}
+                  className="capitalize"
+                  selected={sortBy === s}
                   onClick={() => setSortBy(s)}
-                  className={cn(
-                    'rounded-full px-3 py-1.5 text-xs font-medium capitalize',
-                    sortBy === s
-                      ? 'bg-[hsl(var(--primary))] text-white'
-                      : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                  )}
                 >
                   {s}
-                </button>
+                </Chip>
               ))}
             </div>
           </div>
@@ -251,15 +242,11 @@ export function TransactionsPage() {
                     )}
                   </div>
                 </div>
-                <span
-                  className={cn(
-                    'text-sm font-semibold',
-                    t.type === 'expense' ? 'text-red-400' : 'text-emerald-400'
-                  )}
-                >
-                  {t.type === 'expense' ? '-' : '+'}
-                  {formatCurrency(t.amount)}
-                </span>
+                <TransactionAmount
+                  type={t.type}
+                  amount={t.amount}
+                  className="text-sm font-semibold"
+                />
               </button>
             </div>
           ))}

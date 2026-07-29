@@ -1,6 +1,16 @@
-export type TransactionType = 'income' | 'expense';
+export const TRANSACTION_TYPES = ['income', 'expense'] as const;
+export type TransactionType = (typeof TRANSACTION_TYPES)[number];
+
 export type SyncStatus = 'synced' | 'pending' | 'failed';
-export type PaymentMethod = 'cash' | 'card' | 'upi' | 'bank_transfer' | 'other';
+
+export const PAYMENT_METHODS = [
+  'cash',
+  'card',
+  'upi',
+  'bank_transfer',
+  'other',
+] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export interface User {
   id: string;

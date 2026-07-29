@@ -1,20 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  ArrowLeftRight,
-  BarChart3,
-  User,
-  Wallet,
-  Plus,
-} from 'lucide-react';
+import { Wallet, Plus } from 'lucide-react';
+import { NAV_ACTIVE_CLASS, navItems } from '@/components/layout/nav-items';
 import { cn } from '@/lib/utils';
-
-const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-  { path: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { path: '/profile', icon: User, label: 'Profile' },
-];
 
 export function SideNav() {
   const location = useLocation();
@@ -44,7 +31,7 @@ export function SideNav() {
               className={cn(
                 'flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-all',
                 isActive
-                  ? 'bg-emerald-500/12 text-emerald-500 shadow-inner shadow-emerald-500/5'
+                  ? NAV_ACTIVE_CLASS
                   : 'text-[hsl(var(--muted-foreground))] hover:bg-white/5 hover:text-[hsl(var(--foreground))]'
               )}
             >

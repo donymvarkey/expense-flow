@@ -1,6 +1,10 @@
 import { db } from "@/db";
+import { rowsForUser, unknownCategory } from "@/db/queries";
+import { getCategoryMap } from "@/services/categories";
 import { syncEngine } from "@/sync/engine";
 import { generateId } from "@/lib/utils";
+import { getCurrentMonth, getMonthRange } from "@/lib/date";
+import { filterByDateRange, totalsByType } from "@/lib/aggregations";
 import type { Transaction, TransactionWithCategory } from "@/types";
 import type { TransactionInput } from "@/lib/validations";
 
@@ -17,9 +21,7 @@ export async function getTransactions(
     offset?: number;
   },
 ): Promise<TransactionWithCategory[]> {
-  let collection = db.transactions.where("user_id").equals(userId);
-
-  let transactions = await collection.toArray();
+  let transactions = await rowsForUser(db.transactions, userId);
 
   // Apply filters
   if (options?.type) {
@@ -86,22 +88,18 @@ export async function getTransactions(
   }
 
   // Attach categories
-  const categories = await db.categories
-    .where("user_id")
-    .equals(userId)
-    .toArray();
-  const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const categoryMap = await getCategoryMap(userId);
 
   return transactions.map((t) => ({
     ...t,
-    category: categoryMap.get(t.category_id) || {
-      id: t.category_id,
-      user_id: userId,
-      name: "Unknown",
-      type: t.type,
-      created_at: t.created_at,
-      sync_status: "synced" as const,
-    },
+    category:
+      categoryMap.get(t.category_id) ||
+      unknownCategory({
+        id: t.category_id,
+        userId,
+        type: t.type,
+        createdAt: t.created_at,
+      }),
   }));
 }
 
@@ -114,14 +112,14 @@ export async function getTransaction(
   const category = await db.categories.get(transaction.category_id);
   return {
     ...transaction,
-    category: category || {
-      id: transaction.category_id,
-      user_id: transaction.user_id,
-      name: "Unknown",
-      type: transaction.type,
-      created_at: transaction.created_at,
-      sync_status: "synced" as const,
-    },
+    category:
+      category ||
+      unknownCategory({
+        id: transaction.category_id,
+        userId: transaction.user_id,
+        type: transaction.type,
+        createdAt: transaction.created_at,
+      }),
   };
 }
 
@@ -193,54 +191,28 @@ export async function getMonthlyStats(
   month: number,
   year: number,
 ) {
-  const startDate = new Date(year, month - 1, 1).toISOString().split("T")[0]!;
-  const endDate = new Date(year, month, 0).toISOString().split("T")[0]!;
-
-  const transactions = await db.transactions
-    .where("user_id")
-    .equals(userId)
-    .toArray();
-
-  const monthlyTransactions = transactions.filter(
-    (t) => t.transaction_date >= startDate && t.transaction_date <= endDate,
+  const transactions = await rowsForUser(db.transactions, userId);
+  const monthlyTransactions = filterByDateRange(
+    transactions,
+    getMonthRange(year, month),
   );
 
-  const income = monthlyTransactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const expenses = monthlyTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  return { income, expenses, savings: income - expenses };
+  return totalsByType(monthlyTransactions);
 }
 
 export async function getDashboardStats(userId: string) {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const { month, year } = getCurrentMonth();
 
-  const allTransactions = await db.transactions
-    .where("user_id")
-    .equals(userId)
-    .toArray();
-
-  const totalIncome = allTransactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalExpenses = allTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const allTransactions = await rowsForUser(db.transactions, userId);
+  const { income, expenses, savings } = totalsByType(allTransactions);
 
   const monthly = await getMonthlyStats(userId, month, year);
 
   return {
-    currentBalance: totalIncome - totalExpenses,
-    totalIncome,
-    totalExpenses,
-    savings: totalIncome - totalExpenses,
+    currentBalance: savings,
+    totalIncome: income,
+    totalExpenses: expenses,
+    savings,
     monthlyIncome: monthly.income,
     monthlyExpenses: monthly.expenses,
   };

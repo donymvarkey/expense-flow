@@ -10,9 +10,12 @@ import { getCategories } from '@/services/categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Category } from '@/types';
-import { cn } from '@/lib/utils';
-import { ArrowLeft } from 'lucide-react';
+import { Chip } from '@/components/ui/chip';
+import { FieldLabel } from '@/components/ui/field-label';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { PageHeader } from '@/components/common/PageHeader';
+import { TRANSACTION_TYPE_OPTIONS } from '@/lib/transaction-display';
+import { PAYMENT_METHODS, type Category } from '@/types';
 
 export function EditTransactionPage() {
   const { id } = useParams<{ id: string }>();
@@ -96,45 +99,15 @@ export function EditTransactionPage() {
 
   return (
     <div className="transition-page px-4 pt-12 md:pt-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded-full p-2 hover:bg-[hsl(var(--accent))]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="text-lg font-bold">Edit Transaction</h1>
-      </div>
+      <PageHeader title="Edit Transaction" titleClassName="text-lg" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Type Toggle */}
-        <div className="flex rounded-xl bg-[hsl(var(--muted))] p-1">
-          <button
-            type="button"
-            onClick={() => setValue('type', 'expense')}
-            className={cn(
-              'flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors',
-              type === 'expense'
-                ? 'bg-red-500/20 text-red-400'
-                : 'text-[hsl(var(--muted-foreground))]'
-            )}
-          >
-            Expense
-          </button>
-          <button
-            type="button"
-            onClick={() => setValue('type', 'income')}
-            className={cn(
-              'flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors',
-              type === 'income'
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : 'text-[hsl(var(--muted-foreground))]'
-            )}
-          >
-            Income
-          </button>
-        </div>
+        <SegmentedControl
+          options={TRANSACTION_TYPE_OPTIONS}
+          value={type}
+          onChange={(value) => setValue('type', value)}
+        />
 
         {/* Amount */}
         <Input
@@ -147,24 +120,16 @@ export function EditTransactionPage() {
 
         {/* Category */}
         <div>
-          <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
-            Category
-          </p>
+          <FieldLabel>Category</FieldLabel>
           <div className="flex flex-wrap gap-2">
             {filteredCategories.map((cat) => (
-              <button
+              <Chip
                 key={cat.id}
-                type="button"
+                selected={watch('category_id') === cat.id}
                 onClick={() => setValue('category_id', cat.id)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                  watch('category_id') === cat.id
-                    ? 'bg-[hsl(var(--primary))] text-white'
-                    : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                )}
               >
                 {cat.name}
-              </button>
+              </Chip>
             ))}
           </div>
           {errors.category_id && (
@@ -195,24 +160,17 @@ export function EditTransactionPage() {
 
         {/* Payment Method */}
         <div>
-          <p className="mb-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
-            Payment Method
-          </p>
+          <FieldLabel>Payment Method</FieldLabel>
           <div className="flex flex-wrap gap-2">
-            {['cash', 'card', 'upi', 'bank_transfer', 'other'].map((method) => (
-              <button
+            {PAYMENT_METHODS.map((method) => (
+              <Chip
                 key={method}
-                type="button"
-                onClick={() => setValue('payment_method', method as TransactionInput['payment_method'])}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors',
-                  watch('payment_method') === method
-                    ? 'bg-[hsl(var(--primary))] text-white'
-                    : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                )}
+                className="capitalize"
+                selected={watch('payment_method') === method}
+                onClick={() => setValue('payment_method', method)}
               >
                 {method.replace('_', ' ')}
-              </button>
+              </Chip>
             ))}
           </div>
         </div>

@@ -1,10 +1,21 @@
 import { db, dedupeCategories } from "@/db";
+import { rowsForUser } from "@/db/queries";
 import { supabase } from "@/lib/supabase";
-import type { Budget, Category, SyncQueueItem, Transaction } from "@/types";
-import { generateId } from "@/lib/utils";
+import type { Budget, Category, SyncQueueItem, SyncStatus, Transaction } from "@/types";
+import { createSyncQueueItem } from "@/lib/sync-queue";
 
 type SyncTableName = "categories" | "transactions" | "budgets";
 type LocalRecord = Category | Transaction | Budget;
+
+const SYNC_TABLE_NAMES: SyncTableName[] = [
+  "categories",
+  "transactions",
+  "budgets",
+];
+
+function recordKey(tableName: string, recordId: unknown): string {
+  return `${tableName}:${String(recordId)}`;
+}
 
 class SyncEngine {
   private isProcessing = false;
@@ -30,16 +41,12 @@ class SyncEngine {
     tableName: string,
     payload: Record<string, unknown>,
   ) {
-    const item: SyncQueueItem = {
-      id: generateId(),
-      user_id: userId,
-      action_type: actionType,
-      table_name: tableName,
+    const item = createSyncQueueItem({
+      userId,
+      actionType,
+      tableName,
       payload,
-      status: "pending",
-      retry_count: 0,
-      created_at: new Date().toISOString(),
-    };
+    });
 
     await db.syncQueue.add(item);
     this.notify();
@@ -102,10 +109,8 @@ class SyncEngine {
 
       switch (item.action_type) {
         case "create":
-          await this.handleCreate(item);
-          break;
         case "update":
-          await this.handleUpdate(item);
+          await this.handleUpsert(item);
           break;
         case "delete":
           await this.handleDelete(item);
@@ -115,15 +120,7 @@ class SyncEngine {
       // Remove from queue on success
       await db.syncQueue.delete(item.id);
 
-      // Update sync status on the local record
-      const recordId = item.payload["id"] as string;
-      if (recordId) {
-        const table = db.table(item.table_name);
-        const record = await table.get(recordId);
-        if (record) {
-          await table.update(recordId, { sync_status: "synced" });
-        }
-      }
+      await this.markRecordSyncStatus(item, "synced");
     } catch (error) {
       console.error("Sync failed for item:", item.id, error);
       const newRetryCount = item.retry_count + 1;
@@ -134,15 +131,7 @@ class SyncEngine {
           retry_count: newRetryCount,
         });
 
-        // Mark the local record as failed
-        const recordId = item.payload["id"] as string;
-        if (recordId) {
-          const table = db.table(item.table_name);
-          const record = await table.get(recordId);
-          if (record) {
-            await table.update(recordId, { sync_status: "failed" });
-          }
-        }
+        await this.markRecordSyncStatus(item, "failed");
       } else {
         await db.syncQueue.update(item.id, {
           status: "pending",
@@ -152,18 +141,21 @@ class SyncEngine {
     }
   }
 
-  private async handleCreate(item: SyncQueueItem) {
-    const payload = { ...item.payload };
-    delete payload["sync_status"];
+  private async markRecordSyncStatus(
+    item: SyncQueueItem,
+    syncStatus: SyncStatus,
+  ) {
+    const recordId = item.payload["id"] as string;
+    if (!recordId) return;
 
-    const { error } = await supabase
-      .from(item.table_name)
-      .upsert(payload, { onConflict: "id" });
-
-    if (error) throw error;
+    const table = db.table(item.table_name);
+    const record = await table.get(recordId);
+    if (record) {
+      await table.update(recordId, { sync_status: syncStatus });
+    }
   }
 
-  private async handleUpdate(item: SyncQueueItem) {
+  private async handleUpsert(item: SyncQueueItem) {
     const payload = { ...item.payload };
     delete payload["sync_status"];
 
@@ -205,11 +197,7 @@ class SyncEngine {
   }
 
   private async doHydrateFromSupabase(userId: string) {
-    const tableNames: SyncTableName[] = [
-      "categories",
-      "transactions",
-      "budgets",
-    ];
+    const tableNames = SYNC_TABLE_NAMES;
     const results = await Promise.all(
       tableNames.map((tableName) => this.fetchAllRows(tableName, userId)),
     );
@@ -229,8 +217,8 @@ class SyncEngine {
             .where("user_id")
             .equals(userId)
             .and((item) => item.action_type === "delete")
-            .toArray()).map(
-            (item) => `${item.table_name}:${String(item.payload["id"])}`,
+            .toArray()).map((item) =>
+            recordKey(item.table_name, item.payload["id"]),
           ),
         );
 
@@ -245,9 +233,7 @@ class SyncEngine {
           const remoteIds = new Set(remoteRows.map((row) => row.id));
 
           const rowsToStore = remoteRows
-            .filter(
-              (row) => !queuedDeletes.has(`${tableName}:${String(row.id)}`),
-            )
+            .filter((row) => !queuedDeletes.has(recordKey(tableName, row.id)))
             .filter((row) => {
               const local = localById.get(row.id);
               return !local || local.sync_status === "synced";
@@ -321,18 +307,14 @@ class SyncEngine {
   }
 
   private async rebuildMissingQueueItems(userId: string) {
-    const queued = await db.syncQueue
-      .where("user_id")
-      .equals(userId)
-      .toArray();
+    const queued = await rowsForUser(db.syncQueue, userId);
     const queuedRecords = new Set(
-      queued.map((item) => `${item.table_name}:${String(item.payload["id"])}`),
+      queued.map((item) => recordKey(item.table_name, item.payload["id"])),
     );
 
-    const tables = ["categories", "transactions", "budgets"] as const;
     const missing: SyncQueueItem[] = [];
 
-    for (const tableName of tables) {
+    for (const tableName of SYNC_TABLE_NAMES) {
       const records = await db
         .table(tableName)
         .where("user_id")
@@ -341,19 +323,18 @@ class SyncEngine {
         .toArray();
 
       for (const record of records) {
-        const key = `${tableName}:${String(record.id)}`;
+        const key = recordKey(tableName, record.id);
         if (queuedRecords.has(key)) continue;
 
-        missing.push({
-          id: generateId(),
-          user_id: userId,
-          action_type: "create",
-          table_name: tableName,
-          payload: { ...record },
-          status: "pending",
-          retry_count: 0,
-          created_at: record.created_at ?? new Date().toISOString(),
-        });
+        missing.push(
+          createSyncQueueItem({
+            userId,
+            actionType: "create",
+            tableName,
+            payload: { ...record },
+            createdAt: record.created_at,
+          }),
+        );
         queuedRecords.add(key);
       }
     }

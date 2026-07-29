@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/db';
+import { rowsForUser } from '@/db/queries';
+import { getCategoryMap } from '@/services/categories';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { formatCurrency } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { getMonthRange } from '@/lib/date';
+import {
+  filterByDateRange,
+  percentageOf,
+  sumAmounts,
+  sumByType,
+} from '@/lib/aggregations';
 import {
   BarChart,
   Bar,
@@ -18,6 +27,20 @@ import {
   Line,
   Tooltip,
 } from 'recharts';
+
+const PERIOD_OPTIONS = [
+  { value: '6m' as const, label: '6M' },
+  { value: '12m' as const, label: '12M' },
+];
+
+const MONTH_AXIS_TICK = { fontSize: 11, fill: 'hsl(215, 20.2%, 65.1%)' };
+
+const TOOLTIP_CONTENT_STYLE = {
+  background: 'hsl(222.2, 84%, 4.9%)',
+  border: '1px solid hsl(217.2, 32.6%, 17.5%)',
+  borderRadius: '8px',
+  fontSize: '12px',
+};
 
 interface MonthlyData {
   month: string;
@@ -50,17 +73,8 @@ export function AnalyticsPage() {
     if (!user) return;
     setLoading(true);
 
-    const transactions = await db.transactions
-      .where('user_id')
-      .equals(user.id)
-      .toArray();
-
-    const categories = await db.categories
-      .where('user_id')
-      .equals(user.id)
-      .toArray();
-
-    const categoryMap = new Map(categories.map((c) => [c.id, c]));
+    const transactions = await rowsForUser(db.transactions, user.id);
+    const categoryMap = await getCategoryMap(user.id);
     const months = period === '6m' ? 6 : 12;
 
     // Monthly data
@@ -69,26 +83,15 @@ export function AnalyticsPage() {
 
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startDate = d.toISOString().split('T')[0]!;
-      const endDate = new Date(d.getFullYear(), d.getMonth() + 1, 0)
-        .toISOString()
-        .split('T')[0]!;
-
-      const monthTransactions = transactions.filter(
-        (t) => t.transaction_date >= startDate && t.transaction_date <= endDate
+      const monthTransactions = filterByDateRange(
+        transactions,
+        getMonthRange(d.getFullYear(), d.getMonth() + 1)
       );
-
-      const income = monthTransactions
-        .filter((t) => t.type === 'income')
-        .reduce((s, t) => s + t.amount, 0);
-      const expenses = monthTransactions
-        .filter((t) => t.type === 'expense')
-        .reduce((s, t) => s + t.amount, 0);
 
       monthly.push({
         month: d.toLocaleDateString('en-US', { month: 'short' }),
-        income,
-        expenses,
+        income: sumByType(monthTransactions, 'income'),
+        expenses: sumByType(monthTransactions, 'expense'),
       });
     }
 
@@ -96,13 +99,9 @@ export function AnalyticsPage() {
 
     // Category breakdown
     const expenseTransactions = transactions.filter((t) => t.type === 'expense');
-    const total = expenseTransactions.reduce((s, t) => s + t.amount, 0);
+    const total = sumAmounts(expenseTransactions);
     setTotalExpenses(total);
-    setTotalIncome(
-      transactions
-        .filter((t) => t.type === 'income')
-        .reduce((s, t) => s + t.amount, 0)
-    );
+    setTotalIncome(sumByType(transactions, 'income'));
 
     const categoryTotals = new Map<string, number>();
     for (const t of expenseTransactions) {
@@ -119,7 +118,7 @@ export function AnalyticsPage() {
         name: cat?.name || 'Other',
         amount,
         color: cat?.color || '#6b7280',
-        percentage: total > 0 ? (amount / total) * 100 : 0,
+        percentage: percentageOf(amount, total),
       });
     }
 
@@ -144,30 +143,13 @@ export function AnalyticsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold">Analytics</h1>
-        <div className="flex rounded-full bg-[hsl(var(--muted))] p-1">
-          <button
-            onClick={() => setPeriod('6m')}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-medium',
-              period === '6m'
-                ? 'bg-[hsl(var(--primary))] text-white'
-                : 'text-[hsl(var(--muted-foreground))]'
-            )}
-          >
-            6M
-          </button>
-          <button
-            onClick={() => setPeriod('12m')}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-medium',
-              period === '12m'
-                ? 'bg-[hsl(var(--primary))] text-white'
-                : 'text-[hsl(var(--muted-foreground))]'
-            )}
-          >
-            12M
-          </button>
-        </div>
+        <SegmentedControl
+          shape="pill"
+          itemClassName="px-3 py-1"
+          options={PERIOD_OPTIONS}
+          value={period}
+          onChange={setPeriod}
+        />
       </div>
 
       {/* Summary Cards */}
@@ -201,16 +183,11 @@ export function AnalyticsPage() {
                   dataKey="month"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: 'hsl(215, 20.2%, 65.1%)' }}
+                  tick={MONTH_AXIS_TICK}
                 />
                 <YAxis hide />
                 <Tooltip
-                  contentStyle={{
-                    background: 'hsl(222.2, 84%, 4.9%)',
-                    border: '1px solid hsl(217.2, 32.6%, 17.5%)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
                 <Line
@@ -254,16 +231,11 @@ export function AnalyticsPage() {
                   dataKey="month"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: 'hsl(215, 20.2%, 65.1%)' }}
+                  tick={MONTH_AXIS_TICK}
                 />
                 <YAxis hide />
                 <Tooltip
-                  contentStyle={{
-                    background: 'hsl(222.2, 84%, 4.9%)',
-                    border: '1px solid hsl(217.2, 32.6%, 17.5%)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
                 <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} />
