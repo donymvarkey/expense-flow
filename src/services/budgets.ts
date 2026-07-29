@@ -89,7 +89,9 @@ export async function updateBudget(
   input: Partial<BudgetInput>
 ): Promise<Budget> {
   const existing = await db.budgets.get(id);
-  if (!existing) throw new Error('Budget not found');
+  if (!existing || existing.user_id !== userId) {
+    throw new Error('Budget not found');
+  }
 
   const updated: Budget = {
     ...existing,
@@ -107,6 +109,11 @@ export async function deleteBudget(
   userId: string,
   id: string
 ): Promise<void> {
+  const existing = await db.budgets.get(id);
+  if (!existing || existing.user_id !== userId) {
+    throw new Error('Budget not found');
+  }
+
   await db.budgets.delete(id);
   await syncEngine.addToQueue(userId, 'delete', 'budgets', { id });
 }

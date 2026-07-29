@@ -41,7 +41,7 @@ export function EditTransactionPage() {
 
     async function loadData() {
       const [transaction, cats] = await Promise.all([
-        getTransaction(id!),
+        getTransaction(user!.id, id!),
         getCategories(user!.id),
       ]);
 

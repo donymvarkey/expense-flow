@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Camera, Upload, Loader2 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 
+const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+
 interface ExtractedData {
   amount: number | null;
   merchant: string | null;
@@ -32,6 +34,16 @@ export function ReceiptScanPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please select an image file', variant: 'error' });
+      return;
+    }
+
+    if (file.size > MAX_RECEIPT_BYTES) {
+      toast({ title: 'Image must be smaller than 10 MB', variant: 'error' });
+      return;
+    }
 
     const url = URL.createObjectURL(file);
     setImageUrl(url);
@@ -117,9 +129,15 @@ export function ReceiptScanPage() {
       return;
     }
 
+    const amount = Number(editAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({ title: 'Enter a valid positive amount', variant: 'error' });
+      return;
+    }
+
     try {
       await createTransaction(user.id, {
-        amount: parseFloat(editAmount),
+        amount,
         type: 'expense',
         category_id: '', // Will need to select
         description: editMerchant || undefined,

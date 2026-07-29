@@ -57,7 +57,9 @@ export async function updateCategory(
   input: Partial<CategoryInput>
 ): Promise<Category> {
   const existing = await db.categories.get(id);
-  if (!existing) throw new Error('Category not found');
+  if (!existing || existing.user_id !== userId) {
+    throw new Error('Category not found');
+  }
 
   const normalizedName = input.name?.trim() ?? existing.name;
   if (!normalizedName) throw new Error('Category name is required');
@@ -90,6 +92,11 @@ export async function deleteCategory(
   userId: string,
   id: string
 ): Promise<void> {
+  const existing = await db.categories.get(id);
+  if (!existing || existing.user_id !== userId) {
+    throw new Error('Category not found');
+  }
+
   await db.categories.delete(id);
   await syncEngine.addToQueue(userId, 'delete', 'categories', { id });
 }
