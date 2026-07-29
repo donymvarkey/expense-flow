@@ -1,7 +1,8 @@
 import { db, dedupeCategories } from "@/db";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Budget, Category, SyncQueueItem, Transaction } from "@/types";
 import { generateId } from "@/lib/utils";
+import { getErrorMessage, logError, logRejection } from "@/lib/errors";
 
 type SyncTableName = "categories" | "transactions" | "budgets";
 type LocalRecord = Category | Transaction | Budget;
@@ -12,6 +13,7 @@ class SyncEngine {
   private resumeInProgress = new Map<string, Promise<void>>();
   private hydrationInProgress = new Map<string, Promise<void>>();
   private listeners: Set<() => void> = new Set();
+  private lastError: string | null = null;
 
   subscribe(listener: () => void) {
     this.listeners.add(listener);
@@ -22,6 +24,27 @@ class SyncEngine {
 
   private notify() {
     this.listeners.forEach((l) => l());
+  }
+
+  // Without credentials every remote call fails with an opaque network error,
+  // so surface the configuration problem itself instead.
+  private assertConfigured(): boolean {
+    if (isSupabaseConfigured) return true;
+    if (this.lastError === null) {
+      this.lastError = "Supabase is not configured; changes stay on this device";
+      this.notify();
+    }
+    return false;
+  }
+
+  getLastError(): string | null {
+    return this.lastError;
+  }
+
+  clearLastError() {
+    if (this.lastError === null) return;
+    this.lastError = null;
+    this.notify();
   }
 
   async addToQueue(
@@ -46,7 +69,7 @@ class SyncEngine {
 
     // Try to process immediately if online
     if (navigator.onLine) {
-      void this.processQueue(userId);
+      this.processQueue(userId).catch(logRejection("sync:processQueue"));
     }
   }
 
@@ -56,9 +79,11 @@ class SyncEngine {
       return;
     }
     if (!navigator.onLine) return;
+    if (!this.assertConfigured()) return;
 
     if (!userId) {
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
       userId = data.session?.user.id;
     }
     if (!userId) return;
@@ -91,7 +116,7 @@ class SyncEngine {
 
       if (this.rerunRequested) {
         this.rerunRequested = false;
-        void this.processQueue(userId);
+        this.processQueue(userId).catch(logRejection("sync:processQueue"));
       }
     }
   }
@@ -125,7 +150,8 @@ class SyncEngine {
         }
       }
     } catch (error) {
-      console.error("Sync failed for item:", item.id, error);
+      logError("sync:item", error);
+      this.lastError = getErrorMessage(error, "Sync failed");
       const newRetryCount = item.retry_count + 1;
 
       if (newRetryCount >= 5) {
@@ -308,6 +334,7 @@ class SyncEngine {
   }
 
   private async doResumeForUser(userId: string) {
+    this.lastError = null;
     await this.rebuildMissingQueueItems(userId);
 
     await db.syncQueue
@@ -364,7 +391,8 @@ class SyncEngine {
   }
 
   async retryFailed() {
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
     const userId = data.session?.user.id;
     if (userId) await this.resumeForUser(userId);
   }
@@ -375,14 +403,17 @@ export const syncEngine = new SyncEngine();
 // Process queue when coming back online
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
-    void supabase.auth.getSession().then(({ data }) => {
-      const userId = data.session?.user.id;
-      if (userId) {
-        void syncEngine
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        const userId = data.session?.user.id;
+        if (!userId) return;
+        return syncEngine
           .hydrateFromSupabase(userId)
           .then(() => syncEngine.resumeForUser(userId))
           .then(() => syncEngine.hydrateFromSupabase(userId));
-      }
-    });
+      })
+      .catch(logRejection("sync:online"));
   });
 }

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { getTransaction, deleteTransaction } from '@/services/transactions';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -33,11 +34,18 @@ export function TransactionDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    getTransaction(id).then((t) => {
-      setTransaction(t);
-      setLoading(false);
-    });
-  }, [id]);
+    getTransaction(id)
+      .then(setTransaction)
+      .catch((error: unknown) => {
+        logError('transaction:load', error);
+        toast({
+          title: 'Failed to load transaction',
+          description: getErrorMessage(error, 'Please try again.'),
+          variant: 'error',
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [id, toast]);
 
   const handleDelete = async () => {
     if (!user || !id) return;
@@ -45,8 +53,13 @@ export function TransactionDetailPage() {
       await deleteTransaction(user.id, id);
       toast({ title: 'Transaction deleted', variant: 'success' });
       navigate('/transactions');
-    } catch {
-      toast({ title: 'Failed to delete', variant: 'error' });
+    } catch (error) {
+      logError('transaction:delete', error);
+      toast({
+        title: 'Failed to delete transaction',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     }
   };
 

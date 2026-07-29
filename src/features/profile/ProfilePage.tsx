@@ -1,4 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/toast';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useSyncStatus } from '@/hooks/useSyncStatus';
 import { useSettings, type Theme } from '@/hooks/useSettings';
@@ -36,15 +38,38 @@ export function ProfilePage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
-  const { pendingCount, failedCount, retryFailed } = useSyncStatus();
+  const { pendingCount, failedCount, lastError, retryFailed } = useSyncStatus();
+  const { toast } = useToast();
   const { theme, setTheme, currency, setCurrency } = useSettings();
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const activeCurrency = CURRENCIES.find((c) => c.code === currency);
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      logError('profile:signOut', error);
+      toast({
+        title: 'Failed to sign out',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    try {
+      await retryFailed();
+    } catch (error) {
+      logError('profile:retrySync', error);
+      toast({
+        title: 'Retry failed',
+        description: getErrorMessage(error, 'Could not restart syncing.'),
+        variant: 'error',
+      });
+    }
   };
 
   return (
@@ -98,11 +123,14 @@ export function ProfilePage() {
                   {failedCount} failed
                 </span>
               </div>
-              <Button size="sm" variant="outline" onClick={retryFailed}>
+              <Button size="sm" variant="outline" onClick={handleRetryFailed}>
                 <RefreshCw className="mr-1 h-3 w-3" />
                 Retry
               </Button>
             </div>
+          )}
+          {lastError && (
+            <p className="text-xs text-red-400">Last sync error: {lastError}</p>
           )}
         </CardContent>
       </Card>

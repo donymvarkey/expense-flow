@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getTransactions } from '@/services/transactions';
 import { getCategories } from '@/services/categories';
+import { useToast } from '@/components/ui/toast';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency, formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -22,6 +24,7 @@ type SortOption = 'newest' | 'oldest' | 'highest' | 'lowest';
 
 export function TransactionsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<TransactionWithCategory[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,34 +46,49 @@ export function TransactionsPage() {
       if (!user) return;
       const currentOffset = reset ? 0 : offset;
 
-      const results = await getTransactions(user.id, {
-        type: typeFilter,
-        categoryId: categoryFilter,
-        search: search || undefined,
-        sortBy,
-        limit: BATCH_SIZE,
-        offset: currentOffset,
-      });
+      try {
+        const results = await getTransactions(user.id, {
+          type: typeFilter,
+          categoryId: categoryFilter,
+          search: search || undefined,
+          sortBy,
+          limit: BATCH_SIZE,
+          offset: currentOffset,
+        });
 
-      if (reset) {
-        setTransactions(results);
-        setOffset(BATCH_SIZE);
-      } else {
-        setTransactions((prev) => [...prev, ...results]);
-        setOffset(currentOffset + BATCH_SIZE);
+        if (reset) {
+          setTransactions(results);
+          setOffset(BATCH_SIZE);
+        } else {
+          setTransactions((prev) => [...prev, ...results]);
+          setOffset(currentOffset + BATCH_SIZE);
+        }
+
+        setHasMore(results.length === BATCH_SIZE);
+      } catch (error) {
+        logError('transactions:load', error);
+        setHasMore(false);
+        toast({
+          title: 'Failed to load transactions',
+          description: getErrorMessage(error, 'Please try again.'),
+          variant: 'error',
+        });
+      } finally {
+        setLoading(false);
       }
-
-      setHasMore(results.length === BATCH_SIZE);
-      setLoading(false);
     },
-    [user, typeFilter, categoryFilter, search, sortBy, offset]
+    [user, typeFilter, categoryFilter, search, sortBy, offset, toast]
   );
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    loadTransactions(true);
-    getCategories(user.id).then(setCategories);
+    void loadTransactions(true);
+    getCategories(user.id)
+      .then(setCategories)
+      .catch((error: unknown) => {
+        logError('transactions:loadCategories', error);
+      });
   }, [user, typeFilter, categoryFilter, search, sortBy]);
 
   const lastItemRef = useCallback(
@@ -78,7 +96,7 @@ export function TransactionsPage() {
       if (observerRef.current) observerRef.current.disconnect();
       observerRef.current = new IntersectionObserver((entries) => {
         if (entries[0]?.isIntersecting && hasMore && !loading) {
-          loadTransactions(false);
+          void loadTransactions(false);
         }
       });
       if (node) observerRef.current.observe(node);

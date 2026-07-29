@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/db';
+import { useToast } from '@/components/ui/toast';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/utils';
@@ -34,6 +36,7 @@ interface CategorySpending {
 
 export function AnalyticsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [categoryData, setCategoryData] = useState<CategorySpending[]>([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
@@ -43,21 +46,36 @@ export function AnalyticsPage() {
 
   useEffect(() => {
     if (!user) return;
-    loadAnalytics();
+    void loadAnalytics();
   }, [user, period]);
 
   const loadAnalytics = async () => {
     if (!user) return;
     setLoading(true);
 
+    try {
+      await computeAnalytics(user.id);
+    } catch (error) {
+      logError('analytics:load', error);
+      toast({
+        title: 'Failed to load analytics',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const computeAnalytics = async (userId: string) => {
     const transactions = await db.transactions
       .where('user_id')
-      .equals(user.id)
+      .equals(userId)
       .toArray();
 
     const categories = await db.categories
       .where('user_id')
-      .equals(user.id)
+      .equals(userId)
       .toArray();
 
     const categoryMap = new Map(categories.map((c) => [c.id, c]));
@@ -125,7 +143,6 @@ export function AnalyticsPage() {
 
     catData.sort((a, b) => b.amount - a.amount);
     setCategoryData(catData);
-    setLoading(false);
   };
 
   if (loading) {

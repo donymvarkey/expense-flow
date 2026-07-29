@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { getCategories, createCategory, deleteCategory } from '@/services/categories';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
@@ -28,14 +29,24 @@ export function CategoriesPage() {
 
   useEffect(() => {
     if (!user) return;
-    loadCategories();
+    void loadCategories();
   }, [user]);
 
   const loadCategories = async () => {
     if (!user) return;
-    const cats = await getCategories(user.id);
-    setCategories(cats);
-    setLoading(false);
+    try {
+      const cats = await getCategories(user.id);
+      setCategories(cats);
+    } catch (error) {
+      logError('categories:load', error);
+      toast({
+        title: 'Failed to load categories',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -49,9 +60,14 @@ export function CategoriesPage() {
       toast({ title: 'Category created', variant: 'success' });
       setShowAdd(false);
       setName('');
-      loadCategories();
-    } catch {
-      toast({ title: 'Failed to create category', variant: 'error' });
+      await loadCategories();
+    } catch (error) {
+      logError('categories:create', error);
+      toast({
+        title: 'Failed to create category',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     }
   };
 
@@ -61,9 +77,14 @@ export function CategoriesPage() {
       await deleteCategory(user.id, deleteId);
       toast({ title: 'Category deleted', variant: 'success' });
       setDeleteId(null);
-      loadCategories();
-    } catch {
-      toast({ title: 'Failed to delete', variant: 'error' });
+      await loadCategories();
+    } catch (error) {
+      logError('categories:delete', error);
+      toast({
+        title: 'Failed to delete category',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     }
   };
 

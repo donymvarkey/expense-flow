@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { createTransaction } from '@/services/transactions';
 import { getCategories } from '@/services/categories';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { useNavigate } from 'react-router-dom';
 import type { Category } from '@/types';
 import { cn } from '@/lib/utils';
@@ -23,8 +24,17 @@ export function QuickAddPage() {
 
   useEffect(() => {
     if (!user) return;
-    getCategories(user.id, type).then(setCategories);
-  }, [user, type]);
+    getCategories(user.id, type)
+      .then(setCategories)
+      .catch((error: unknown) => {
+        logError('quick-add:loadCategories', error);
+        toast({
+          title: 'Failed to load categories',
+          description: getErrorMessage(error, 'Please try again.'),
+          variant: 'error',
+        });
+      });
+  }, [user, type, toast]);
 
   const handleKeyPress = (key: string) => {
     if (key === 'backspace') {
@@ -63,9 +73,11 @@ export function QuickAddPage() {
         variant: 'success',
       });
       navigate(-1);
-    } catch {
+    } catch (error) {
+      logError('quick-add:save', error);
       toast({
         title: 'Failed to save',
+        description: getErrorMessage(error, 'Please try again.'),
         variant: 'error',
       });
     } finally {
