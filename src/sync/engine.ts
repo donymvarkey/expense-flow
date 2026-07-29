@@ -6,6 +6,22 @@ import { generateId } from "@/lib/utils";
 type SyncTableName = "categories" | "transactions" | "budgets";
 type LocalRecord = Category | Transaction | Budget;
 
+const SYNC_TABLES: readonly SyncTableName[] = [
+  "categories",
+  "transactions",
+  "budgets",
+];
+
+function syncTableOrNull(tableName: string): SyncTableName | null {
+  return SYNC_TABLES.find((name) => name === tableName) ?? null;
+}
+
+function assertSyncTable(tableName: string): SyncTableName {
+  const allowed = syncTableOrNull(tableName);
+  if (!allowed) throw new Error(`Unsupported sync table: ${tableName}`);
+  return allowed;
+}
+
 class SyncEngine {
   private isProcessing = false;
   private rerunRequested = false;
@@ -27,7 +43,7 @@ class SyncEngine {
   async addToQueue(
     userId: string,
     actionType: SyncQueueItem["action_type"],
-    tableName: string,
+    tableName: SyncTableName,
     payload: Record<string, unknown>,
   ) {
     const item: SyncQueueItem = {
@@ -117,8 +133,9 @@ class SyncEngine {
 
       // Update sync status on the local record
       const recordId = item.payload["id"] as string;
-      if (recordId) {
-        const table = db.table(item.table_name);
+      const tableName = syncTableOrNull(item.table_name);
+      if (recordId && tableName) {
+        const table = db.table(tableName);
         const record = await table.get(recordId);
         if (record) {
           await table.update(recordId, { sync_status: "synced" });
@@ -136,8 +153,9 @@ class SyncEngine {
 
         // Mark the local record as failed
         const recordId = item.payload["id"] as string;
-        if (recordId) {
-          const table = db.table(item.table_name);
+        const tableName = syncTableOrNull(item.table_name);
+        if (recordId && tableName) {
+          const table = db.table(tableName);
           const record = await table.get(recordId);
           if (record) {
             await table.update(recordId, { sync_status: "failed" });
@@ -153,44 +171,59 @@ class SyncEngine {
   }
 
   private async handleCreate(item: SyncQueueItem) {
-    const payload = { ...item.payload };
-    delete payload["sync_status"];
-
-    const { error } = await supabase
-      .from(item.table_name)
-      .upsert(payload, { onConflict: "id" });
-
-    if (error) throw error;
+    await this.upsert(item);
   }
 
   private async handleUpdate(item: SyncQueueItem) {
-    const payload = { ...item.payload };
+    await this.upsert(item);
+  }
+
+  private async upsert(item: SyncQueueItem) {
+    const tableName = assertSyncTable(item.table_name);
+    const payload: Record<string, unknown> = { ...item.payload };
     delete payload["sync_status"];
+    payload["user_id"] = item.user_id;
 
     const { error } = await supabase
-      .from(item.table_name)
+      .from(tableName)
       .upsert(payload, { onConflict: "id" });
 
     if (error) throw error;
   }
 
   private async handleDelete(item: SyncQueueItem) {
+    const tableName = assertSyncTable(item.table_name);
     const id = item.payload["id"] as string;
 
     const { error } = await supabase
-      .from(item.table_name)
+      .from(tableName)
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", item.user_id);
 
     if (error) throw error;
   }
 
   async getPendingCount(): Promise<number> {
-    return db.syncQueue.where("status").equals("pending").count();
+    return this.countByStatus("pending");
   }
 
   async getFailedCount(): Promise<number> {
-    return db.syncQueue.where("status").equals("failed").count();
+    return this.countByStatus("failed");
+  }
+
+  private async countByStatus(
+    status: SyncQueueItem["status"],
+  ): Promise<number> {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    if (!userId) return 0;
+
+    return db.syncQueue
+      .where("user_id")
+      .equals(userId)
+      .and((item) => item.status === status)
+      .count();
   }
 
   hydrateFromSupabase(userId: string): Promise<void> {
@@ -205,11 +238,7 @@ class SyncEngine {
   }
 
   private async doHydrateFromSupabase(userId: string) {
-    const tableNames: SyncTableName[] = [
-      "categories",
-      "transactions",
-      "budgets",
-    ];
+    const tableNames: SyncTableName[] = [...SYNC_TABLES];
     const results = await Promise.all(
       tableNames.map((tableName) => this.fetchAllRows(tableName, userId)),
     );

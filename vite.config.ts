@@ -52,7 +52,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Only cache table reads. Auth (tokens, sessions) and Storage
+            // (receipt images) responses must never be written to the cache.
+            urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/rest\/v1\/.*/i,
+            method: 'GET',
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
@@ -60,6 +63,7 @@ export default defineConfig({
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24,
               },
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],

@@ -32,12 +32,12 @@ export function TransactionDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
-    getTransaction(id).then((t) => {
+    if (!id || !user) return;
+    getTransaction(user.id, id).then((t) => {
       setTransaction(t);
       setLoading(false);
     });
-  }, [id]);
+  }, [id, user]);
 
   const handleDelete = async () => {
     if (!user || !id) return;

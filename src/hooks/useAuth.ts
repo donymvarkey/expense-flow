@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { seedDefaultCategories } from '@/db';
+import { clearLocalDataForUser, seedDefaultCategories } from '@/db';
 import { syncEngine } from '@/sync/engine';
 import type { User as AppUser } from '@/types';
 import type { User, Session } from '@supabase/supabase-js';
@@ -130,9 +130,16 @@ export function useAuth() {
   );
 
   const signOut = useCallback(async () => {
+    const userId = state.user?.id;
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-  }, []);
+
+    // Financial data must not stay readable to the next account on the device.
+    if (userId) {
+      initializedUsers.delete(userId);
+      await clearLocalDataForUser(userId);
+    }
+  }, [state.user?.id]);
 
   const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {

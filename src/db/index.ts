@@ -23,6 +23,33 @@ export class ExpenseFlowDB extends Dexie {
 
 export const db = new ExpenseFlowDB();
 
+// Removes a user's locally cached financial data. Skipped when unsynced work
+// is still queued so signing out offline cannot silently discard it.
+export async function clearLocalDataForUser(userId: string): Promise<boolean> {
+  const pending = await db.syncQueue
+    .where('user_id')
+    .equals(userId)
+    .count();
+  if (pending > 0) return false;
+
+  await db.transaction(
+    'rw',
+    db.transactions,
+    db.categories,
+    db.budgets,
+    async () => {
+      for (const table of [db.transactions, db.categories, db.budgets]) {
+        const ids = (
+          await table.where('user_id').equals(userId).primaryKeys()
+        ) as string[];
+        if (ids.length > 0) await table.bulkDelete(ids);
+      }
+    }
+  );
+
+  return true;
+}
+
 // Guards against concurrent seeding within the same page session. useAuth can
 // invoke seeding from both getSession() and onAuthStateChange() almost
 // simultaneously; without this lock both calls observe an empty table and each

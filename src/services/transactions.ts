@@ -106,10 +106,11 @@ export async function getTransactions(
 }
 
 export async function getTransaction(
+  userId: string,
   id: string,
 ): Promise<TransactionWithCategory | null> {
   const transaction = await db.transactions.get(id);
-  if (!transaction) return null;
+  if (!transaction || transaction.user_id !== userId) return null;
 
   const category = await db.categories.get(transaction.category_id);
   return {
@@ -162,7 +163,9 @@ export async function updateTransaction(
   input: Partial<TransactionInput>,
 ): Promise<Transaction> {
   const existing = await db.transactions.get(id);
-  if (!existing) throw new Error("Transaction not found");
+  if (!existing || existing.user_id !== userId) {
+    throw new Error("Transaction not found");
+  }
 
   const updated: Transaction = {
     ...existing,
@@ -184,6 +187,11 @@ export async function deleteTransaction(
   userId: string,
   id: string,
 ): Promise<void> {
+  const existing = await db.transactions.get(id);
+  if (!existing || existing.user_id !== userId) {
+    throw new Error("Transaction not found");
+  }
+
   await db.transactions.delete(id);
   await syncEngine.addToQueue(userId, "delete", "transactions", { id });
 }
