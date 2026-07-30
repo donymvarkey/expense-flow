@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/toast';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { getDashboardStats } from '@/services/transactions';
 import { getBudgets } from '@/services/budgets';
 import { getTransactions } from '@/services/transactions';
@@ -22,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [budgets, setBudgets] = useState<BudgetWithCategory[]>([]);
@@ -42,13 +45,20 @@ export function DashboardPage() {
         setStats(dashStats);
         setBudgets(monthlyBudgets);
         setRecentTransactions(recent);
+      } catch (error) {
+        logError('dashboard:load', error);
+        toast({
+          title: 'Failed to load dashboard',
+          description: getErrorMessage(error, 'Please try again.'),
+          variant: 'error',
+        });
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
-  }, [user]);
+    void loadData();
+  }, [user, toast]);
 
   if (loading) return <DashboardSkeleton />;
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { createTransaction } from '@/services/transactions';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Camera, Upload, Loader2 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
@@ -35,15 +36,16 @@ export function ReceiptScanPage() {
 
     const url = URL.createObjectURL(file);
     setImageUrl(url);
-    processImage(url);
+    void processImage(url);
   };
 
   const processImage = async (url: string) => {
     setProcessing(true);
     setProgress(0);
 
+    let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
     try {
-      const worker = await createWorker('eng', undefined, {
+      worker = await createWorker('eng', undefined, {
         logger: (m) => {
           if (m.status === 'recognizing text') {
             setProgress(Math.round(m.progress * 100));
@@ -59,12 +61,20 @@ export function ReceiptScanPage() {
       setEditAmount(extracted.amount?.toString() || extracted.total?.toString() || '');
       setEditMerchant(extracted.merchant || '');
       setEditDate(extracted.date || new Date().toISOString().split('T')[0]!);
-
-      await worker.terminate();
     } catch (error) {
-      console.error('OCR failed:', error);
-      toast({ title: 'Failed to scan receipt', variant: 'error' });
+      logError('receipt:ocr', error);
+      toast({
+        title: 'Failed to scan receipt',
+        description: getErrorMessage(error, 'Please try another image.'),
+        variant: 'error',
+      });
     } finally {
+      // Terminate in finally so a failed recognition does not leak the worker.
+      if (worker) {
+        await worker.terminate().catch((error: unknown) => {
+          logError('receipt:workerTerminate', error);
+        });
+      }
       setProcessing(false);
     }
   };
@@ -128,8 +138,13 @@ export function ReceiptScanPage() {
 
       toast({ title: 'Expense added from receipt', variant: 'success' });
       navigate('/transactions');
-    } catch {
-      toast({ title: 'Failed to save', variant: 'error' });
+    } catch (error) {
+      logError('receipt:save', error);
+      toast({
+        title: 'Failed to save',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     }
   };
 

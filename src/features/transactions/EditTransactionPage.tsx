@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { getTransaction, updateTransaction } from '@/services/transactions';
 import { getCategories } from '@/services/categories';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,29 +41,39 @@ export function EditTransactionPage() {
     if (!id || !user) return;
 
     async function loadData() {
-      const [transaction, cats] = await Promise.all([
-        getTransaction(id!),
-        getCategories(user!.id),
-      ]);
+      try {
+        const [transaction, cats] = await Promise.all([
+          getTransaction(id!),
+          getCategories(user!.id),
+        ]);
 
-      if (transaction) {
-        reset({
-          amount: transaction.amount,
-          type: transaction.type,
-          category_id: transaction.category_id,
-          description: transaction.description || '',
-          notes: transaction.notes || '',
-          payment_method: transaction.payment_method,
-          transaction_date: transaction.transaction_date,
+        if (transaction) {
+          reset({
+            amount: transaction.amount,
+            type: transaction.type,
+            category_id: transaction.category_id,
+            description: transaction.description || '',
+            notes: transaction.notes || '',
+            payment_method: transaction.payment_method,
+            transaction_date: transaction.transaction_date,
+          });
+        }
+
+        setCategories(cats);
+      } catch (error) {
+        logError('transaction:loadForEdit', error);
+        toast({
+          title: 'Failed to load transaction',
+          description: getErrorMessage(error, 'Please try again.'),
+          variant: 'error',
         });
+      } finally {
+        setLoading(false);
       }
-
-      setCategories(cats);
-      setLoading(false);
     }
 
-    loadData();
-  }, [id, user, reset]);
+    void loadData();
+  }, [id, user, reset, toast]);
 
   const filteredCategories = categories.filter((c) => c.type === type);
 
@@ -73,8 +84,13 @@ export function EditTransactionPage() {
       await updateTransaction(user.id, id, data);
       toast({ title: 'Transaction updated', variant: 'success' });
       navigate(`/transactions/${id}`);
-    } catch {
-      toast({ title: 'Failed to update', variant: 'error' });
+    } catch (error) {
+      logError('transaction:update', error);
+      toast({
+        title: 'Failed to update transaction',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     } finally {
       setSaving(false);
     }

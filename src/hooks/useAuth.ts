@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { seedDefaultCategories } from '@/db';
 import { syncEngine } from '@/sync/engine';
+import { logError, logRejection } from '@/lib/errors';
 import type { User as AppUser } from '@/types';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -31,9 +32,9 @@ function initializeLocalData(userId: string): Promise<void> {
     await syncEngine.hydrateFromSupabase(userId);
     initializedUsers.add(userId);
   })()
-    .catch((error) => {
+    .catch((error: unknown) => {
       // Existing IndexedDB data remains available when the network is flaky.
-      console.error('Unable to refresh local data from Supabase:', error);
+      logError('auth:initializeLocalData', error);
     })
     .finally(() => {
       initializationInProgress.delete(userId);
@@ -76,14 +77,18 @@ export function useAuth() {
     };
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) throw error;
       if (session?.user) {
-        void applySession(session);
+        applySession(session).catch(logRejection('auth:applySession'));
       } else {
         currentUserId = null;
         initializedUsers.clear();
         setState({ user: null, session: null, loading: false });
       }
+    }).catch((error: unknown) => {
+      logError('auth:getSession', error);
+      setState({ user: null, session: null, loading: false });
     });
 
     // Listen for auth changes
@@ -94,7 +99,7 @@ export function useAuth() {
         // Run outside the auth callback so Supabase can finish persisting the
         // session before synchronization starts using it.
         window.setTimeout(() => {
-          void applySession(session);
+          applySession(session).catch(logRejection('auth:applySession'));
         }, 0);
       } else {
         currentUserId = null;

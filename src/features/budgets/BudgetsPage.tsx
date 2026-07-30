@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/toast';
 import { getBudgets, createBudget, deleteBudget } from '@/services/budgets';
 import { getCategories } from '@/services/categories';
+import { getErrorMessage, logError } from '@/lib/errors';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -35,18 +36,28 @@ export function BudgetsPage() {
 
   useEffect(() => {
     if (!user) return;
-    loadData();
+    void loadData();
   }, [user]);
 
   const loadData = async () => {
     if (!user) return;
-    const [b, cats] = await Promise.all([
-      getBudgets(user.id, month, year),
-      getCategories(user.id, 'expense'),
-    ]);
-    setBudgets(b);
-    setCategories(cats);
-    setLoading(false);
+    try {
+      const [b, cats] = await Promise.all([
+        getBudgets(user.id, month, year),
+        getCategories(user.id, 'expense'),
+      ]);
+      setBudgets(b);
+      setCategories(cats);
+    } catch (error) {
+      logError('budgets:load', error);
+      toast({
+        title: 'Failed to load budgets',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -66,9 +77,14 @@ export function BudgetsPage() {
       setShowAdd(false);
       setSelectedCategory('');
       setAmount('');
-      loadData();
-    } catch {
-      toast({ title: 'Failed to create budget', variant: 'error' });
+      await loadData();
+    } catch (error) {
+      logError('budgets:create', error);
+      toast({
+        title: 'Failed to create budget',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     }
   };
 
@@ -78,9 +94,14 @@ export function BudgetsPage() {
       await deleteBudget(user.id, deleteId);
       toast({ title: 'Budget deleted', variant: 'success' });
       setDeleteId(null);
-      loadData();
-    } catch {
-      toast({ title: 'Failed to delete', variant: 'error' });
+      await loadData();
+    } catch (error) {
+      logError('budgets:delete', error);
+      toast({
+        title: 'Failed to delete budget',
+        description: getErrorMessage(error, 'Please try again.'),
+        variant: 'error',
+      });
     }
   };
 
