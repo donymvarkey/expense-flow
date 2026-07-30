@@ -67,6 +67,17 @@ npm run build
 npm run preview
 ```
 
+### Tests
+
+Unit tests run on Vitest in a jsdom environment, with IndexedDB provided by
+`fake-indexeddb`, so no Supabase project or browser is required.
+
+```bash
+npm test              # run once
+npm run test:watch    # watch mode
+npm run test:coverage # coverage report (text + html in coverage/)
+```
+
 ## Project Structure
 
 ```
